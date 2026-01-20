@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Loader2, AlertCircle } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 
 const AgriAdvisoryInterface = () => {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
@@ -18,7 +18,8 @@ const AgriAdvisoryInterface = () => {
     growthStage: ''
   });
 
-  const handleInputChange = (field, value) => {
+const handleInputChange = (field, value) => {
+
     setSettings(prev => ({ ...prev, [field]: value }));
   };
 
@@ -26,52 +27,59 @@ const AgriAdvisoryInterface = () => {
     setIsGenerating(true);
     setError('');
     setResponse('');
+    setTimeout(() => {
+    setResponse("🚜 Backend not connected yet. UI is running successfully.");
+    setIsGenerating(false);
+  }, 800);
 
-    try {
-      // Replace this URL with your actual backend endpoint
-      const apiEndpoint = 'YOUR_API_ENDPOINT_HERE';
+  //   try {
+  //     // Replace this URL with your actual backend endpoint
+  //     const apiEndpoint = 'YOUR_API_ENDPOINT_HERE';
       
-      const requestBody = {
-        crop: settings.crop,
-        region: settings.region,
-        weather: {
-          humidity: settings.humidity,
-          temperature: settings.temperature,
-          rainfall: settings.rainfall
-        },
-        soilType: settings.soilType,
-        language: settings.language,
-        growthStage: settings.growthStage
-      };
+  //     const requestBody = {
+  //       crop: settings.crop,
+  //       region: settings.region,
+  //       weather: {
+  //         humidity: settings.humidity,
+  //         temperature: settings.temperature,
+  //         rainfall: settings.rainfall
+  //       },
+  //       soilType: settings.soilType,
+  //       language: settings.language,
+  //       growthStage: settings.growthStage
+  //     };
 
-      const res = await fetch(apiEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
+  //     const res = await fetch(apiEndpoint, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify(requestBody)
+  //     });
 
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
+  //     if (!res.ok) {
+  //       throw new Error(`HTTP error! status: ${res.status}`);
+  //     }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
+  //     const reader = res.body.getReader();
+  //     const decoder = new TextDecoder();
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
+  //     while (true) {
+  //       const { value, done } = await reader.read();
+  //       if (done) break;
         
-        const chunk = decoder.decode(value);
-        setResponse(prev => prev + chunk);
-      }
-    } catch (err) {
-      setError(`Error: ${err.message}. Please check your API endpoint configuration.`);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+  //       const chunk = decoder.decode(value);
+  //       setResponse(prev => prev + chunk);
+  //     }
+  //   } catch (err) {
+  //     setError(`Error: ${err.message}. Please check your API endpoint configuration.`);
+  //   } finally {
+  //     setIsGenerating(false);
+  //   }
+  
+};
+
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
