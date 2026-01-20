@@ -2,13 +2,14 @@
 import React from 'react';
 import { AlertCircle, ChevronDown, ChevronRight, Leaf, Loader2, Settings, Sparkles, ThermometerSun, Droplets, MapPin, Languages, Calendar, Layers, Sprout, Send, Brain, RefreshCw, Zap } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { sampleInput } from './sample_input';
 
 // API Configuration - reads from environment variables
 const API_CONFIG = {
   // Saarthi Agri-Model (In-house OpenWebUI)
   saarthiApiKey: import.meta.env.VITE_SAARTHI_API_KEY || 'sk-9d09b7df9cbd5daebca67cbbb45e9f0c',
   saarthiBaseUrl: import.meta.env.VITE_SAARTHI_BASE_URL || 'https://chat.soket.ai/api/chat/completions',
-  saarthiModel: 'Saarthi Agri-Model',
+  saarthiModel: 'SayantanJoker/saarthi-v1-untie',
   
   // Gemini API
   geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
@@ -20,9 +21,9 @@ const API_CONFIG = {
   litgptModel: 'agri-reasoning',
 };
 
-// Thinking token markers
-const THINKING_START = '<think>';
-const THINKING_END = '</think>';
+// Default thinking token markers
+const DEFAULT_THINKING_START = '<unused0>';
+const DEFAULT_THINKING_END = '<unused1>';
 
 // API Provider type
 type ApiProvider = 'saarthi' | 'gemini' | 'litgpt';
@@ -89,17 +90,45 @@ const SelectField = ({ label, value, onChange, options, icon: Icon }: { label: s
   </div>
 );
 
-const ThinkingIndicator = () => (
-  <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-400 text-sm">
-    <Brain size={16} className="animate-pulse" />
-    <span className="font-medium">Thinking...</span>
-    <div className="flex gap-1 ml-1">
-      <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-      <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-      <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+const ThinkingIndicator = ({ content }: { content: string }) => {
+  const thinkingRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll thinking content to bottom
+  useEffect(() => {
+    if (thinkingRef.current) {
+      thinkingRef.current.scrollTop = thinkingRef.current.scrollHeight;
+    }
+  }, [content]);
+
+  return (
+    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-amber-500/20 bg-amber-500/5">
+        <Brain size={16} className="text-amber-400 animate-pulse" />
+        <span className="font-medium text-amber-400 text-sm">Model is thinking...</span>
+        <div className="flex gap-1 ml-auto">
+          <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+          <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+          <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+        </div>
+      </div>
+      {/* Thinking Content Window - Small scrollable area */}
+      <div 
+        ref={thinkingRef}
+        className="max-h-40 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-amber-500/30 scrollbar-track-amber-500/10 min-h-[60px]"
+      >
+        {content ? (
+          <pre className="text-xs text-amber-200/80 whitespace-pre-wrap font-mono leading-relaxed">
+            {content}
+            <span className="inline-block w-1.5 h-3 bg-amber-400 animate-pulse ml-0.5 rounded-sm"></span>
+          </pre>
+        ) : (
+          <div className="text-xs text-amber-400/50 italic">Waiting for thinking content...</div>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const AgriAdvisoryInterface = () => {
   // Collapsible section states
@@ -108,6 +137,7 @@ const AgriAdvisoryInterface = () => {
     weather: false,
     soil: false,
     advanced: false,
+    thinking: false,
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -138,6 +168,9 @@ const AgriAdvisoryInterface = () => {
     irrigationType: '',
     previousCrop: '',
     farmSize: '',
+    // Thinking tokens
+    thinkingStartToken: DEFAULT_THINKING_START,
+    thinkingEndToken: DEFAULT_THINKING_END,
   });
 
   const toggleSection = (section: string) => {
@@ -171,40 +204,72 @@ const AgriAdvisoryInterface = () => {
   };
 
   // Parse streaming response with thinking token handling
-  const processStreamChunk = (text: string, currentState: {
-    displayText: string;
-    thinking: string;
-    inThinkingMode: boolean;
-    thinkingBuffer: string;
-  }) => {
+  // Starts in thinking mode and collects everything until thinkingEndToken is found
+  const processStreamChunk = (
+    text: string, 
+    currentState: {
+      displayText: string;
+      thinking: string;
+      inThinkingMode: boolean;
+      thinkingBuffer: string;
+    },
+    thinkingStartToken: string,
+    thinkingEndToken: string
+  ) => {
     let { displayText, inThinkingMode, thinkingBuffer } = currentState;
     let remaining = text;
 
+    // If no end token configured, treat everything as thinking
+    if (!thinkingEndToken) {
+      return { 
+        displayText, 
+        thinking: thinkingBuffer + text, 
+        inThinkingMode: true, 
+        thinkingBuffer: thinkingBuffer + text 
+      };
+    }
+
     while (remaining.length > 0) {
       if (inThinkingMode) {
-        const endIndex = remaining.indexOf(THINKING_END);
+        // In thinking mode: collect everything until end token is found
+        const endIndex = remaining.indexOf(thinkingEndToken);
         if (endIndex !== -1) {
+          // Found end token - add content before it to thinking buffer, then switch to display mode
           thinkingBuffer += remaining.slice(0, endIndex);
-          remaining = remaining.slice(endIndex + THINKING_END.length);
+          remaining = remaining.slice(endIndex + thinkingEndToken.length);
           inThinkingMode = false;
         } else {
+          // No end token yet - add all remaining content to thinking buffer
           thinkingBuffer += remaining;
           remaining = '';
         }
       } else {
-        const startIndex = remaining.indexOf(THINKING_START);
-        if (startIndex !== -1) {
-          displayText += remaining.slice(0, startIndex);
-          remaining = remaining.slice(startIndex + THINKING_START.length);
-          inThinkingMode = true;
+        // After end token: add everything to display text
+        // Optionally check for start token if multiple thinking sections are needed
+        if (thinkingStartToken) {
+          const startIndex = remaining.indexOf(thinkingStartToken);
+          if (startIndex !== -1) {
+            displayText += remaining.slice(0, startIndex);
+            remaining = remaining.slice(startIndex + thinkingStartToken.length);
+            inThinkingMode = true;
+          } else {
+            displayText += remaining;
+            remaining = '';
+          }
         } else {
+          // No start token - just add everything to display
           displayText += remaining;
           remaining = '';
         }
       }
     }
 
-    return { displayText, thinking: thinkingBuffer, inThinkingMode, thinkingBuffer };
+    return { 
+      displayText, 
+      thinking: thinkingBuffer, 
+      inThinkingMode, 
+      thinkingBuffer 
+    };
   };
 
   // Generate using Saarthi Agri-Model (In-house OpenWebUI)
@@ -217,13 +282,14 @@ const AgriAdvisoryInterface = () => {
       },
       body: JSON.stringify({
         model: API_CONFIG.saarthiModel,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert agricultural advisor with deep knowledge of farming practices, crop management, pest control, and sustainable agriculture. Provide detailed, practical advice tailored to the specific conditions provided.'
-          },
-          { role: 'user', content: prompt }
-        ],
+        messages: sampleInput,
+        // messages: [
+        //   {
+        //     role: 'system',
+        //     content: 'You are an expert agricultural advisor with deep knowledge of farming practices, crop management, pest control, and sustainable agriculture. Provide detailed, practical advice tailored to the specific conditions provided.'
+        //   },
+        //   { role: 'user', content: "Suggest me a crop for the given region and season" }
+        // ],
         stream: true,
         temperature: 0.7,
         max_tokens: 4096,
@@ -319,7 +385,7 @@ const AgriAdvisoryInterface = () => {
     setError('');
     setResponse('');
     setThinkingContent('');
-    setIsThinking(false);
+    setIsThinking(true); // Start in thinking mode until end token is found
 
     const prompt = buildPrompt();
 
@@ -332,7 +398,7 @@ const AgriAdvisoryInterface = () => {
     let state = {
       displayText: '',
       thinking: '',
-      inThinkingMode: false,
+      inThinkingMode: true, // Start in thinking mode until end token is found
       thinkingBuffer: '',
     };
 
@@ -379,7 +445,7 @@ const AgriAdvisoryInterface = () => {
               }
 
               if (content) {
-                state = processStreamChunk(content, state);
+                state = processStreamChunk(content, state, settings.thinkingStartToken, settings.thinkingEndToken);
                 setResponse(state.displayText);
                 setThinkingContent(state.thinking);
                 setIsThinking(state.inThinkingMode);
@@ -387,7 +453,7 @@ const AgriAdvisoryInterface = () => {
             } catch {
               // Non-JSON chunk, treat as raw text for non-SSE streams
               if (apiProvider === 'litgpt') {
-                state = processStreamChunk(data, state);
+                state = processStreamChunk(data, state, settings.thinkingStartToken, settings.thinkingEndToken);
                 setResponse(state.displayText);
                 setThinkingContent(state.thinking);
                 setIsThinking(state.inThinkingMode);
@@ -650,6 +716,36 @@ const AgriAdvisoryInterface = () => {
                 type="number"
               />
             </CollapsibleSection>
+
+            {/* Thinking Tokens Configuration */}
+            <CollapsibleSection
+              title="Thinking Tokens"
+              icon={Brain}
+              isOpen={sections.thinking}
+              onToggle={() => toggleSection('thinking')}
+            >
+              <div className="text-xs text-gray-500 mb-2">
+                Configure the tokens that mark model's reasoning/thinking process
+              </div>
+              <InputField
+                label="Thinking Start Token"
+                value={settings.thinkingStartToken}
+                onChange={(v) => handleInputChange('thinkingStartToken', v)}
+                placeholder="e.g., <think>"
+                icon={Brain}
+              />
+              <InputField
+                label="Thinking End Token"
+                value={settings.thinkingEndToken}
+                onChange={(v) => handleInputChange('thinkingEndToken', v)}
+                placeholder="e.g., </think>"
+                icon={Brain}
+              />
+              <div className="text-xs text-gray-600 mt-2 p-2 bg-gray-800/50 rounded-lg">
+                Text between these tokens will be shown in a separate "thinking" window, 
+                and the final response will display clean text without the reasoning.
+              </div>
+            </CollapsibleSection>
           </div>
 
           {/* Generate Button */}
@@ -774,10 +870,10 @@ const AgriAdvisoryInterface = () => {
                   </div>
                 </div>
 
-                {/* Thinking Indicator */}
+                {/* Thinking Indicator with Live Content */}
                 {isThinking && (
                   <div className="mb-4">
-                    <ThinkingIndicator />
+                    <ThinkingIndicator content={thinkingContent} />
                   </div>
                 )}
 
