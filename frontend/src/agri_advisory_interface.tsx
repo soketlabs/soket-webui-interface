@@ -1,8 +1,15 @@
+/// <reference types="vite/client" />
+import React from 'react';
 import { AlertCircle, ChevronDown, ChevronRight, Leaf, Loader2, Settings, Sparkles, ThermometerSun, Droplets, MapPin, Languages, Calendar, Layers, Sprout, Send, Brain, RefreshCw, Zap } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 // API Configuration - reads from environment variables
 const API_CONFIG = {
+  // Saarthi Agri-Model (In-house OpenWebUI)
+  saarthiApiKey: import.meta.env.VITE_SAARTHI_API_KEY || 'sk-9d09b7df9cbd5daebca67cbbb45e9f0c',
+  saarthiBaseUrl: import.meta.env.VITE_SAARTHI_BASE_URL || 'https://chat.soket.ai/api/chat/completions',
+  saarthiModel: 'Saarthi Agri-Model',
+  
   // Gemini API
   geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
   geminiModel: 'gemini-2.0-flash',
@@ -18,9 +25,9 @@ const THINKING_START = '<think>';
 const THINKING_END = '</think>';
 
 // API Provider type
-type ApiProvider = 'gemini' | 'litgpt';
+type ApiProvider = 'saarthi' | 'gemini' | 'litgpt';
 
-const CollapsibleSection = ({ title, icon: Icon, isOpen, onToggle, children }) => (
+const CollapsibleSection = ({ title, icon: Icon, isOpen, onToggle, children }: { title: string; icon: any; isOpen: boolean; onToggle: () => void; children: React.ReactNode }) => (
   <div className="border border-gray-700/50 rounded-lg overflow-hidden bg-gray-800/30 backdrop-blur-sm">
     <button
       onClick={onToggle}
@@ -46,7 +53,7 @@ const CollapsibleSection = ({ title, icon: Icon, isOpen, onToggle, children }) =
   </div>
 );
 
-const InputField = ({ label, value, onChange, placeholder, icon: Icon, type = 'text' }) => (
+const InputField = ({ label, value, onChange, placeholder, icon: Icon, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; icon?: any; type?: string }) => (
   <div className="space-y-1.5">
     <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
       {Icon && <Icon size={12} />}
@@ -62,7 +69,7 @@ const InputField = ({ label, value, onChange, placeholder, icon: Icon, type = 't
   </div>
 );
 
-const SelectField = ({ label, value, onChange, options, icon: Icon }) => (
+const SelectField = ({ label, value, onChange, options, icon: Icon }: { label: string; value: string; onChange: (v: string) => void; options: any[]; icon?: any }) => (
   <div className="space-y-1.5">
     <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
       {Icon && <Icon size={12} />}
@@ -108,7 +115,7 @@ const AgriAdvisoryInterface = () => {
   const [thinkingContent, setThinkingContent] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [error, setError] = useState('');
-  const [apiProvider, setApiProvider] = useState<ApiProvider>('gemini');
+  const [apiProvider, setApiProvider] = useState<ApiProvider>('saarthi'); // Default to Saarthi
   const responseRef = useRef(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -160,9 +167,7 @@ const AgriAdvisoryInterface = () => {
     if (settings.previousCrop) parts.push(`Previous Crop: ${settings.previousCrop}`);
     if (settings.farmSize) parts.push(`Farm Size: ${settings.farmSize}`);
 
-    const systemContext = `You are an expert agricultural advisor with deep knowledge of farming practices, crop management, pest control, and sustainable agriculture. Provide detailed, practical advice tailored to the specific conditions provided.`;
-
-    return `${systemContext}\n\nGenerate comprehensive agricultural advisory for the following conditions:\n\n${parts.join('\n')}\n\nProvide detailed recommendations for:\n1. Optimal farming practices\n2. Pest and disease management\n3. Fertilizer recommendations\n4. Irrigation schedule\n5. Expected yield and harvest timing`;
+    return `Generate comprehensive agricultural advisory for the following conditions:\n\n${parts.join('\n')}\n\nProvide detailed recommendations for:\n1. Optimal farming practices\n2. Pest and disease management\n3. Fertilizer recommendations\n4. Irrigation schedule\n5. Expected yield and harvest timing`;
   };
 
   // Parse streaming response with thinking token handling
@@ -202,6 +207,38 @@ const AgriAdvisoryInterface = () => {
     return { displayText, thinking: thinkingBuffer, inThinkingMode, thinkingBuffer };
   };
 
+  // Generate using Saarthi Agri-Model (In-house OpenWebUI)
+  const generateWithSaarthi = async (prompt: string, signal: AbortSignal) => {
+    const response = await fetch(API_CONFIG.saarthiBaseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_CONFIG.saarthiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: API_CONFIG.saarthiModel,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert agricultural advisor with deep knowledge of farming practices, crop management, pest control, and sustainable agriculture. Provide detailed, practical advice tailored to the specific conditions provided.'
+          },
+          { role: 'user', content: prompt }
+        ],
+        stream: true,
+        temperature: 0.7,
+        max_tokens: 4096,
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Saarthi API error: ${response.status} - ${errorText}`);
+    }
+
+    return response;
+  };
+
   // Generate using Gemini API with streaming
   const generateWithGemini = async (prompt: string, signal: AbortSignal) => {
     const apiKey = API_CONFIG.geminiApiKey;
@@ -209,6 +246,9 @@ const AgriAdvisoryInterface = () => {
     if (!apiKey) {
       throw new Error('Gemini API key not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
     }
+
+    const systemContext = 'You are an expert agricultural advisor with deep knowledge of farming practices, crop management, pest control, and sustainable agriculture. Provide detailed, practical advice tailored to the specific conditions provided.';
+    const fullPrompt = `${systemContext}\n\n${prompt}`;
 
     const url = `${API_CONFIG.geminiBaseUrl}/${API_CONFIG.geminiModel}:streamGenerateContent?key=${apiKey}&alt=sse`;
 
@@ -220,7 +260,7 @@ const AgriAdvisoryInterface = () => {
       body: JSON.stringify({
         contents: [
           {
-            parts: [{ text: prompt }]
+            parts: [{ text: fullPrompt }]
           }
         ],
         generationConfig: {
@@ -299,7 +339,9 @@ const AgriAdvisoryInterface = () => {
     try {
       let res: Response;
 
-      if (apiProvider === 'gemini') {
+      if (apiProvider === 'saarthi') {
+        res = await generateWithSaarthi(prompt, abortControllerRef.current.signal);
+      } else if (apiProvider === 'gemini') {
         res = await generateWithGemini(prompt, abortControllerRef.current.signal);
       } else {
         res = await generateWithLitGPT(prompt, abortControllerRef.current.signal);
@@ -332,7 +374,7 @@ const AgriAdvisoryInterface = () => {
                 // Gemini streaming response format
                 content = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
               } else {
-                // OpenAI-compatible format
+                // OpenAI-compatible format (Saarthi & Lit-GPT)
                 content = parsed.choices?.[0]?.delta?.content || '';
               }
 
@@ -394,11 +436,46 @@ const AgriAdvisoryInterface = () => {
   const growthStages = ['Pre-sowing', 'Germination', 'Vegetative', 'Flowering', 'Fruiting', 'Maturation', 'Harvest'];
 
   const apiProviders = [
+    { value: 'saarthi', label: '🌾 Saarthi Agri-Model' },
     { value: 'gemini', label: '✨ Gemini 2.0 Flash' },
     { value: 'litgpt', label: '🔧 Lit-GPT (Local)' },
   ];
 
-  const currentModel = apiProvider === 'gemini' ? API_CONFIG.geminiModel : API_CONFIG.litgptModel;
+  const getModelName = () => {
+    switch (apiProvider) {
+      case 'saarthi': return API_CONFIG.saarthiModel;
+      case 'gemini': return API_CONFIG.geminiModel;
+      case 'litgpt': return API_CONFIG.litgptModel;
+      default: return 'Unknown';
+    }
+  };
+
+  const getProviderIcon = () => {
+    switch (apiProvider) {
+      case 'saarthi': return '🌾';
+      case 'gemini': return '✨';
+      case 'litgpt': return '🔧';
+      default: return '🤖';
+    }
+  };
+
+  const getProviderColor = () => {
+    switch (apiProvider) {
+      case 'saarthi': return 'bg-orange-500';
+      case 'gemini': return 'bg-blue-500';
+      case 'litgpt': return 'bg-emerald-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getProviderLabel = () => {
+    switch (apiProvider) {
+      case 'saarthi': return 'Saarthi Agri-Model (chat.soket.ai)';
+      case 'gemini': return 'Google Gemini 2.0 Flash';
+      case 'litgpt': return 'Local Lit-GPT API';
+      default: return 'Unknown Provider';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
@@ -615,8 +692,8 @@ const AgriAdvisoryInterface = () => {
               <span className="text-gray-200 font-medium">Agricultural Advisory Response</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500">
-              <span className={`w-2 h-2 rounded-full animate-pulse ${apiProvider === 'gemini' ? 'bg-blue-500' : 'bg-emerald-500'}`}></span>
-              {apiProvider === 'gemini' ? '✨' : '🔧'} Model: {currentModel}
+              <span className={`w-2 h-2 rounded-full animate-pulse ${getProviderColor()}`}></span>
+              {getProviderIcon()} Model: {getModelName()}
             </div>
           </div>
 
@@ -652,17 +729,10 @@ const AgriAdvisoryInterface = () => {
                   ))}
                 </div>
                 <div className="text-xs text-gray-600">
-                  {apiProvider === 'gemini' ? (
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                      Using Gemini 2.0 Flash API
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                      Using Local Lit-GPT API
-                    </span>
-                  )}
+                  <span className="flex items-center gap-1">
+                    <span className={`w-2 h-2 rounded-full ${getProviderColor()}`}></span>
+                    Using {getProviderLabel()}
+                  </span>
                 </div>
               </div>
             )}
@@ -744,7 +814,7 @@ const AgriAdvisoryInterface = () => {
           {/* Footer */}
           <div className="h-12 border-t border-gray-800 flex items-center justify-center bg-gray-900/30 backdrop-blur-xl">
             <p className="text-xs text-gray-600">
-              Powered by {apiProvider === 'gemini' ? 'Google Gemini 2.0 Flash' : 'Lit-GPT'} • Agri-Reasoning Model
+              Powered by {getProviderLabel()} • Agri-Reasoning Interface
             </p>
           </div>
         </div>

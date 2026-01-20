@@ -18,9 +18,10 @@ A modern, Open-WebUI inspired chat interface for agricultural advisory generatio
 
 - **Node.js** >= 16.0.0
 - **npm** >= 8.0.0
-- **API Access** - Either:
-  - Google Gemini API key (recommended)
-  - Local lit-gpt server running
+- **API Access** - One of the following:
+  - **Saarthi Agri-Model** (Default) - In-house OpenWebUI at chat.soket.ai
+  - Google Gemini API key
+  - Local lit-gpt server
 
 ## 🚀 Quick Start
 
@@ -40,13 +41,18 @@ Create a `.env` file in the `frontend/` directory:
 cp .env.example .env
 ```
 
-Edit `.env` with your API key:
+Edit `.env` with your configuration:
 
 ```env
-# Gemini API Configuration (get your key from https://aistudio.google.com/apikey)
+# Saarthi Agri-Model Configuration (In-house OpenWebUI - chat.soket.ai)
+# Pre-configured - no changes needed for default setup
+VITE_SAARTHI_API_KEY=sk-9d09b7df9cbd5daebca67cbbb45e9f0c
+VITE_SAARTHI_BASE_URL=https://chat.soket.ai/api/chat/completions
+
+# Gemini API Configuration (optional - get key from https://aistudio.google.com/apikey)
 VITE_GEMINI_API_KEY=your_gemini_api_key_here
 
-# Optional: Custom lit-gpt backend URL (if using OpenAI-compatible API)
+# Local Lit-GPT Configuration (optional)
 VITE_LITGPT_BASE_URL=http://localhost:8000
 ```
 
@@ -76,10 +82,12 @@ Production files will be in the `dist/` directory.
 
 ### Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `VITE_GEMINI_API_KEY` | Google Gemini API key | Yes (for Gemini) |
-| `VITE_LITGPT_BASE_URL` | Lit-GPT server URL | No (default: `http://localhost:8000`) |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VITE_SAARTHI_API_KEY` | Saarthi API key | Pre-configured |
+| `VITE_SAARTHI_BASE_URL` | Saarthi API endpoint | `https://chat.soket.ai/api/chat/completions` |
+| `VITE_GEMINI_API_KEY` | Google Gemini API key | (optional) |
+| `VITE_LITGPT_BASE_URL` | Lit-GPT server URL | `http://localhost:8000` |
 
 ### Getting a Gemini API Key
 
@@ -94,6 +102,11 @@ The API configuration is in `src/agri_advisory_interface.tsx`:
 
 ```typescript
 const API_CONFIG = {
+  // Saarthi Agri-Model (In-house OpenWebUI)
+  saarthiApiKey: import.meta.env.VITE_SAARTHI_API_KEY || 'sk-9d09b7df9cbd5daebca67cbbb45e9f0c',
+  saarthiBaseUrl: import.meta.env.VITE_SAARTHI_BASE_URL || 'https://chat.soket.ai/api/chat/completions',
+  saarthiModel: 'Saarthi Agri-Model',
+  
   // Gemini API
   geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
   geminiModel: 'gemini-2.0-flash',
@@ -124,7 +137,28 @@ proxy: {
 
 ## 📡 API Endpoints
 
-### Gemini API (Default)
+### Saarthi Agri-Model (Default)
+
+**POST** `https://chat.soket.ai/api/chat/completions`
+
+OpenAI-compatible chat completions with streaming. Requires Bearer token authentication.
+
+```bash
+curl -X POST https://chat.soket.ai/api/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-9d09b7df9cbd5daebca67cbbb45e9f0c" \
+  -d '{
+    "model": "Saarthi Agri-Model",
+    "messages": [
+      {"role": "system", "content": "You are an expert agricultural advisor..."},
+      {"role": "user", "content": "Generate advisory for Crop: Cotton..."}
+    ],
+    "stream": true,
+    "temperature": 0.7
+  }'
+```
+
+### Gemini API (Alternative)
 
 **POST** `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent`
 
@@ -275,4 +309,4 @@ MIT License - feel free to use and modify for your projects.
 
 ---
 
-**Built for Agricultural Advisory Systems** 🌱 | Powered by Google Gemini & Lit-GPT
+**Built for Agricultural Advisory Systems** 🌱 | Powered by Saarthi Agri-Model, Google Gemini & Lit-GPT
