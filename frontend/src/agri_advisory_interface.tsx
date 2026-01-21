@@ -1,8 +1,9 @@
 /// <reference types="vite/client" />
 import React from 'react';
-import { AlertCircle, ChevronDown, ChevronRight, Leaf, Loader2, Settings, Sparkles, ThermometerSun, Droplets, MapPin, Languages, Calendar, Layers, Sprout, Send, Brain, RefreshCw, Zap } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronRight, Leaf, Loader2, Settings, Sparkles, ThermometerSun, Droplets, MapPin, Languages, Calendar, Layers, Sprout, Send, Brain, RefreshCw, Zap, BarChart } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-import { sampleInput } from './sample_input';
+import ReactMarkdown from 'react-markdown';
+import { system_instructions } from './sample_input';
 import companyLogo from './Soket-Logo.svg';
 
 // API Configuration - reads from environment variables
@@ -10,7 +11,7 @@ const API_CONFIG = {
   // Saarthi Agri-Model (In-house OpenWebUI)
   saarthiApiKey: import.meta.env.VITE_SAARTHI_API_KEY || 'sk-9d09b7df9cbd5daebca67cbbb45e9f0c',
   saarthiBaseUrl: import.meta.env.VITE_SAARTHI_BASE_URL || 'https://chat.soket.ai/api/chat/completions',
-  saarthiModel: 'SayantanJoker/saarthi-v1-untie',
+  saarthiModel: 'soketlabs/saarthi-agri-v1',
   
   // Gemini API
   geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
@@ -91,46 +92,6 @@ const SelectField = ({ label, value, onChange, options, icon: Icon }: { label: s
   </div>
 );
 
-const ThinkingIndicator = ({ content }: { content: string }) => {
-  const thinkingRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll thinking content to bottom
-  useEffect(() => {
-    if (thinkingRef.current) {
-      thinkingRef.current.scrollTop = thinkingRef.current.scrollHeight;
-    }
-  }, [content]);
-
-  return (
-    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-amber-500/20 bg-amber-500/5">
-        <Brain size={16} className="text-amber-400 animate-pulse" />
-        <span className="font-medium text-amber-400 text-sm">Model is thinking...</span>
-        <div className="flex gap-1 ml-auto">
-          <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-          <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-          <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-        </div>
-      </div>
-      {/* Thinking Content Window - Small scrollable area */}
-      <div 
-        ref={thinkingRef}
-        className="max-h-40 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-amber-500/30 scrollbar-track-amber-500/10 min-h-[60px]"
-      >
-        {content ? (
-          <pre className="text-xs text-amber-200/80 whitespace-pre-wrap font-mono leading-relaxed">
-            {content}
-            <span className="inline-block w-1.5 h-3 bg-amber-400 animate-pulse ml-0.5 rounded-sm"></span>
-          </pre>
-        ) : (
-          <div className="text-xs text-amber-400/50 italic">Waiting for thinking content...</div>
-        )}
-      </div>
-    </div>
-  );
-};
-
 const AgriAdvisoryInterface = () => {
   // Collapsible section states
   const [sections, setSections] = useState({
@@ -143,12 +104,20 @@ const AgriAdvisoryInterface = () => {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [response, setResponse] = useState('');
+  const [displayedResponse, setDisplayedResponse] = useState(''); // For smooth streaming
   const [thinkingContent, setThinkingContent] = useState('');
+  const [displayedThinking, setDisplayedThinking] = useState(''); // For smooth streaming
   const [isThinking, setIsThinking] = useState(false);
   const [error, setError] = useState('');
   const [apiProvider, setApiProvider] = useState<ApiProvider>('saarthi'); // Default to Saarthi
   const responseRef = useRef(null);
+  const thinkingRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // Refs for smooth streaming animation
+  const responseBufferRef = useRef('');
+  const thinkingBufferRef = useRef('');
+  const animationFrameRef = useRef<number | null>(null);
 
   const [settings, setSettings] = useState({
     // Basic
@@ -156,19 +125,22 @@ const AgriAdvisoryInterface = () => {
     region: '',
     language: 'English',
     // Weather
-    temperature: '',
-    humidity: '',
-    rainfall: '',
+    temperature: '28',
+    humidity: '65',
+    rainfall: '150',
+    pressure: '1000',
     season: 'Kharif',
     // Soil
     soilType: '',
-    soilPh: '',
-    soilMoisture: '',
+    // soilPh: '',
+    // soilMoisture: '',
     // Advanced
     growthStage: '',
-    irrigationType: '',
-    previousCrop: '',
-    farmSize: '',
+    farmingPractice: '',
+    stress: '',
+    // irrigationType: '',
+    // previousCrop: '',
+    // farmSize: '',
     // Thinking tokens
     thinkingStartToken: DEFAULT_THINKING_START,
     thinkingEndToken: DEFAULT_THINKING_END,
@@ -193,15 +165,25 @@ const AgriAdvisoryInterface = () => {
     if (settings.temperature) parts.push(`Temperature: ${settings.temperature}°C`);
     if (settings.humidity) parts.push(`Humidity: ${settings.humidity}%`);
     if (settings.rainfall) parts.push(`Rainfall: ${settings.rainfall}mm`);
+    if (settings.pressure) parts.push(`Pressure: ${settings.pressure}`);
     if (settings.soilType) parts.push(`Soil Type: ${settings.soilType}`);
-    if (settings.soilPh) parts.push(`Soil pH: ${settings.soilPh}`);
-    if (settings.soilMoisture) parts.push(`Soil Moisture: ${settings.soilMoisture}%`);
+    // if (settings.soilPh) parts.push(`Soil pH: ${settings.soilPh}`);
+    // if (settings.soilMoisture) parts.push(`Soil Moisture: ${settings.soilMoisture}%`);
     if (settings.growthStage) parts.push(`Growth Stage: ${settings.growthStage}`);
-    if (settings.irrigationType) parts.push(`Irrigation: ${settings.irrigationType}`);
-    if (settings.previousCrop) parts.push(`Previous Crop: ${settings.previousCrop}`);
-    if (settings.farmSize) parts.push(`Farm Size: ${settings.farmSize}`);
+    // if (settings.irrigationType) parts.push(`Irrigation: ${settings.irrigationType}`);
+    // if (settings.previousCrop) parts.push(`Previous Crop: ${settings.previousCrop}`);
+    // if (settings.farmSize) parts.push(`Farm Size: ${settings.farmSize}`);
+    if (settings.farmingPractice) parts.push(`Farming Practice: ${settings.farmingPractice}`);
+    if (settings.stress) parts.push(`Stress: ${settings.stress}`);
 
-    return `Generate comprehensive agricultural advisory for the following conditions:\n\n${parts.join('\n')}\n\nProvide detailed recommendations for:\n1. Optimal farming practices\n2. Pest and disease management\n3. Fertilizer recommendations\n4. Irrigation schedule\n5. Expected yield and harvest timing`;
+    const message_content = {
+        role: "user",
+        content: `Please generate crop advisory using the following structured input:\n\n\t\t${parts.join('\n\t\t')}\n\nThink carefully and follow the output protocol strictly.`
+    };
+
+    console.log("message_content", message_content);
+    // Spread system_instructions (which is an array) and add the user message
+    return [...system_instructions, message_content];
   };
 
   // Parse streaming response with thinking token handling
@@ -273,8 +255,11 @@ const AgriAdvisoryInterface = () => {
     };
   };
 
+  // Message type for API calls
+  type ChatMessage = { role: string; content: string };
+
   // Generate using Saarthi Agri-Model (In-house OpenWebUI)
-  const generateWithSaarthi = async (prompt: string, signal: AbortSignal) => {
+  const generateWithSaarthi = async (messages: ChatMessage[], signal: AbortSignal) => {
     const response = await fetch(API_CONFIG.saarthiBaseUrl, {
       method: 'POST',
       headers: {
@@ -283,14 +268,7 @@ const AgriAdvisoryInterface = () => {
       },
       body: JSON.stringify({
         model: API_CONFIG.saarthiModel,
-        messages: sampleInput,
-        // messages: [
-        //   {
-        //     role: 'system',
-        //     content: 'You are an expert agricultural advisor with deep knowledge of farming practices, crop management, pest control, and sustainable agriculture. Provide detailed, practical advice tailored to the specific conditions provided.'
-        //   },
-        //   { role: 'user', content: "Suggest me a crop for the given region and season" }
-        // ],
+        messages: messages,
         stream: true,
         temperature: 0.7,
         max_tokens: 4096,
@@ -307,15 +285,15 @@ const AgriAdvisoryInterface = () => {
   };
 
   // Generate using Gemini API with streaming
-  const generateWithGemini = async (prompt: string, signal: AbortSignal) => {
+  const generateWithGemini = async (messages: ChatMessage[], signal: AbortSignal) => {
     const apiKey = API_CONFIG.geminiApiKey;
     
     if (!apiKey) {
       throw new Error('Gemini API key not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
     }
 
-    const systemContext = 'You are an expert agricultural advisor with deep knowledge of farming practices, crop management, pest control, and sustainable agriculture. Provide detailed, practical advice tailored to the specific conditions provided.';
-    const fullPrompt = `${systemContext}\n\n${prompt}`;
+    // Convert messages to Gemini format
+    const fullPrompt = messages.map(m => `${m.role}: ${m.content}`).join('\n\n');
 
     const url = `${API_CONFIG.geminiBaseUrl}/${API_CONFIG.geminiModel}:streamGenerateContent?key=${apiKey}&alt=sse`;
 
@@ -347,7 +325,7 @@ const AgriAdvisoryInterface = () => {
   };
 
   // Generate using Lit-GPT / OpenAI-compatible API
-  const generateWithLitGPT = async (prompt: string, signal: AbortSignal) => {
+  const generateWithLitGPT = async (messages: ChatMessage[], signal: AbortSignal) => {
     const response = await fetch(`${API_CONFIG.litgptBaseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
@@ -355,13 +333,7 @@ const AgriAdvisoryInterface = () => {
       },
       body: JSON.stringify({
         model: API_CONFIG.litgptModel,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert agricultural advisor with deep knowledge of farming practices, crop management, pest control, and sustainable agriculture.'
-          },
-          { role: 'user', content: prompt }
-        ],
+        messages: messages,
         stream: true,
         temperature: 0.7,
         max_tokens: 2048,
@@ -385,11 +357,13 @@ const AgriAdvisoryInterface = () => {
     setIsGenerating(true);
     setError('');
     setResponse('');
+    setDisplayedResponse('');
     setThinkingContent('');
+    setDisplayedThinking('');
     setIsThinking(true); // Start in thinking mode until end token is found
 
     const prompt = buildPrompt();
-
+    console.log("prompt", prompt);
     // Abort any previous request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -485,16 +459,65 @@ const AgriAdvisoryInterface = () => {
 
   const clearConversation = () => {
     setResponse('');
+    setDisplayedResponse('');
     setThinkingContent('');
+    setDisplayedThinking('');
     setError('');
   };
+
+  // Smooth streaming animation - gradually display tokens
+  useEffect(() => {
+    responseBufferRef.current = response;
+    thinkingBufferRef.current = thinkingContent;
+    
+    const animateText = () => {
+      let updated = false;
+      
+      // Animate response text (2-3 characters at a time for smoothness)
+      if (displayedResponse.length < responseBufferRef.current.length) {
+        const charsToAdd = Math.min(3, responseBufferRef.current.length - displayedResponse.length);
+        setDisplayedResponse(responseBufferRef.current.slice(0, displayedResponse.length + charsToAdd));
+        updated = true;
+      }
+      
+      // Animate thinking text (2-3 characters at a time)
+      if (displayedThinking.length < thinkingBufferRef.current.length) {
+        const charsToAdd = Math.min(3, thinkingBufferRef.current.length - displayedThinking.length);
+        setDisplayedThinking(thinkingBufferRef.current.slice(0, displayedThinking.length + charsToAdd));
+        updated = true;
+      }
+      
+      if (updated) {
+        animationFrameRef.current = requestAnimationFrame(animateText);
+      }
+    };
+    
+    // Start animation
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    animationFrameRef.current = requestAnimationFrame(animateText);
+    
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [response, thinkingContent, displayedResponse, displayedThinking]);
+
+  // Auto-scroll thinking content
+  useEffect(() => {
+    if (thinkingRef.current) {
+      thinkingRef.current.scrollTop = thinkingRef.current.scrollHeight;
+    }
+  }, [displayedThinking]);
 
   // Auto-scroll response
   useEffect(() => {
     if (responseRef.current) {
       (responseRef.current as HTMLElement).scrollTop = (responseRef.current as HTMLElement).scrollHeight;
     }
-  }, [response, isThinking]);
+  }, [displayedResponse, isThinking]);
 
   const languages = ['English', 'Hindi'];
   const seasons = ['Kharif', 'Rabi', 'Zaid', 'Year-round'];
@@ -656,6 +679,14 @@ const AgriAdvisoryInterface = () => {
                 icon={Droplets}
                 type="number"
               />
+              <InputField
+                label="{Pressure} (hPa)"
+                value={settings.pressure}
+                onChange={(v) => handleInputChange('pressure', v)}
+                placeholder="e.g., 150"
+                icon={BarChart}
+                type="number"
+              />
             </CollapsibleSection>
 
             {/* Soil Information */}
@@ -672,20 +703,20 @@ const AgriAdvisoryInterface = () => {
                 options={['', ...soilTypes]}
                 icon={Layers}
               />
-              <InputField
+              {/* <InputField
                 label="Soil pH"
                 value={settings.soilPh}
                 onChange={(v) => handleInputChange('soilPh', v)}
                 placeholder="e.g., 6.5"
                 type="number"
-              />
-              <InputField
+              /> */}
+              {/* <InputField
                 label="Soil Moisture (%)"
                 value={settings.soilMoisture}
                 onChange={(v) => handleInputChange('soilMoisture', v)}
                 placeholder="e.g., 40"
                 type="number"
-              />
+              /> */}
             </CollapsibleSection>
 
             {/* Advanced Settings */}
@@ -702,24 +733,37 @@ const AgriAdvisoryInterface = () => {
                 options={['', ...growthStages]}
               />
               <SelectField
+                label="Farming Practice"
+                value={settings.farmingPractice}
+                onChange={(v) => handleInputChange('farmingPractice', v)}
+                options={['', ...irrigationTypes]}
+              />
+              <InputField
+                label="Stress"
+                value={settings.stress}
+                onChange={(v) => handleInputChange('stress', v)}
+                placeholder="e.g., Pests, Diseases, Weather"
+                icon={AlertCircle}
+              />
+              {/* <SelectField
                 label="Irrigation Type"
                 value={settings.irrigationType}
                 onChange={(v) => handleInputChange('irrigationType', v)}
                 options={['', ...irrigationTypes]}
-              />
-              <InputField
+              /> */}
+              {/* <InputField
                 label="Previous Crop"
                 value={settings.previousCrop}
                 onChange={(v) => handleInputChange('previousCrop', v)}
                 placeholder="e.g., Soybean"
-              />
-              <InputField
+              /> */}
+              {/* <InputField
                 label="Farm Size (acres)"
                 value={settings.farmSize}
                 onChange={(v) => handleInputChange('farmSize', v)}
                 placeholder="e.g., 5"
                 type="number"
-              />
+              /> */}
             </CollapsibleSection>
 
             {/* Thinking Tokens Configuration */}
@@ -856,11 +900,11 @@ const AgriAdvisoryInterface = () => {
                         📅 {settings.season}
                       </span>
                     )}
-                    {settings.temperature && (
+                    {/* {settings.temperature && (
                       <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
                         🌡️ {settings.temperature}°C
                       </span>
-                    )}
+                    )} */}
                     {settings.soilType && (
                       <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
                         🏔️ {settings.soilType}
@@ -869,39 +913,47 @@ const AgriAdvisoryInterface = () => {
                   </div>
                 </div>
 
-                {/* Thinking Indicator with Live Content */}
-                {isThinking && (
+                {/* Thinking Content - Always visible in small scrollable window */}
+                {(thinkingContent || displayedThinking) && (
                   <div className="mb-4">
-                    <ThinkingIndicator content={thinkingContent} />
-                  </div>
-                )}
-
-                {/* Response Content */}
-                <div className="prose prose-invert max-w-none">
-                  <div className="text-gray-200 whitespace-pre-wrap leading-relaxed text-[15px]">
-                    {response}
-                    {isGenerating && !isThinking && (
-                      <span className="inline-block w-2 h-5 bg-emerald-500 animate-pulse ml-1 rounded-sm"></span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Thinking Content (collapsed/expandable if needed) */}
-                {thinkingContent && !isThinking && (
-                  <details className="mt-6">
-                    <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-400 transition-colors">
-                      <span className="flex items-center gap-2">
-                        <Brain size={14} />
-                        View reasoning process
-                      </span>
-                    </summary>
-                    <div className="mt-3 p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-                      <pre className="text-xs text-amber-200/70 whitespace-pre-wrap font-mono">
-                        {thinkingContent}
-                      </pre>
+                    <div className={`border rounded-xl overflow-hidden ${isThinking ? 'bg-amber-500/10 border-amber-500/30' : 'bg-gray-800/30 border-gray-700/50'}`}>
+                      {/* Header */}
+                      <div className={`flex items-center gap-2 px-3 py-2 border-b ${isThinking ? 'border-amber-500/20 bg-amber-500/5' : 'border-gray-700/30 bg-gray-800/20'}`}>
+                        <Brain size={16} className={isThinking ? 'text-amber-400 animate-pulse' : 'text-gray-400'} />
+                        <span className={`font-medium text-sm ${isThinking ? 'text-amber-400' : 'text-gray-400'}`}>
+                          {isThinking ? 'Model is thinking...' : 'Reasoning Process'}
+                        </span>
+                        {isThinking && (
+                          <div className="flex gap-1 ml-auto">
+                            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                          </div>
+                        )}
+                      </div>
+                      {/* Thinking Content - Small scrollable window with auto-scroll */}
+                      <div 
+                        ref={thinkingRef}
+                        className="max-h-32 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-gray-600/50 scrollbar-track-transparent"
+                      >
+                        <pre className={`text-xs whitespace-pre-wrap font-mono leading-relaxed ${isThinking ? 'text-amber-200/80' : 'text-gray-400'}`}>
+                          {displayedThinking}
+                          {isThinking && displayedThinking.length < thinkingContent.length && (
+                            <span className="inline-block w-1.5 h-3 bg-amber-400 animate-pulse ml-0.5 rounded-sm"></span>
+                          )}
+                        </pre>
+                      </div>
                     </div>
-                  </details>
+                  </div>
                 )}
+
+                {/* Response Content - Rendered as Markdown */}
+                <div className="prose prose-invert prose-emerald max-w-none prose-headings:text-gray-100 prose-p:text-gray-300 prose-strong:text-emerald-400 prose-li:text-gray-300 prose-a:text-emerald-400 prose-code:text-amber-300 prose-code:bg-gray-800/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-800/70 prose-pre:border prose-pre:border-gray-700">
+                  <ReactMarkdown>{displayedResponse}</ReactMarkdown>
+                  {isGenerating && !isThinking && displayedResponse.length < response.length && (
+                    <span className="inline-block w-2 h-5 bg-emerald-500 animate-pulse ml-1 rounded-sm"></span>
+                  )}
+                </div>
               </div>
             )}
           </div>
