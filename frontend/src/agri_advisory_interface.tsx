@@ -3,6 +3,7 @@ import React from 'react';
 import { AlertCircle, ChevronDown, ChevronRight, Leaf, Loader2, Settings, Sparkles, ThermometerSun, Droplets, MapPin, Languages, Calendar, Layers, Sprout, Send, Brain, RefreshCw, Zap } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { sampleInput } from './sample_input';
+import companyLogo from './Soket-Logo.svg';
 
 // API Configuration - reads from environment variables
 const API_CONFIG = {
@@ -495,17 +496,17 @@ const AgriAdvisoryInterface = () => {
     }
   }, [response, isThinking]);
 
-  const languages = ['English', 'Hindi', 'Punjabi', 'Marathi', 'Tamil', 'Telugu', 'Kannada', 'Bengali', 'Gujarati', 'Odia'];
+  const languages = ['English', 'Hindi'];
   const seasons = ['Kharif', 'Rabi', 'Zaid', 'Year-round'];
   const soilTypes = ['Alluvial', 'Black/Regur', 'Red', 'Laterite', 'Desert/Arid', 'Mountain', 'Peaty/Marshy', 'Sandy', 'Clay', 'Loamy', 'Saline'];
   const irrigationTypes = ['Drip', 'Sprinkler', 'Flood/Surface', 'Furrow', 'Rain-fed', 'Canal'];
   const growthStages = ['Pre-sowing', 'Germination', 'Vegetative', 'Flowering', 'Fruiting', 'Maturation', 'Harvest'];
 
-  const apiProviders = [
-    { value: 'saarthi', label: '🌾 Saarthi Agri-Model' },
-    { value: 'gemini', label: '✨ Gemini 2.0 Flash' },
-    { value: 'litgpt', label: '🔧 Lit-GPT (Local)' },
-  ];
+  // const apiProviders = [
+  //   { value: 'saarthi', label: '🌾 Saarthi Agri-Model' },
+  //   { value: 'gemini', label: '✨ Gemini 2.0 Flash' },
+  //   { value: 'litgpt', label: '🔧 Lit-GPT (Local)' },
+  // ];
 
   const getModelName = () => {
     switch (apiProvider) {
@@ -558,19 +559,23 @@ const AgriAdvisoryInterface = () => {
         {/* Sidebar */}
         <div className="w-80 bg-gray-900/50 border-r border-gray-800 flex flex-col backdrop-blur-xl">
           {/* Logo Header */}
-          <div className="p-4 border-b border-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                <Leaf size={22} className="text-white" />
+          <div className="px-10 py-10 border-b border-gray-800">
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-20 rounded-3xl bg-gray-50 shadow-lg flex items-center justify-center">
+                <img
+                  src={companyLogo}
+                  alt="Company Logo"
+                  className="w-full h-full object-contain p-0.5"
+                />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-white tracking-tight">Agri-Reasoning</h1>
-                <p className="text-xs text-gray-500">AI Agricultural Advisor</p>
+                <h1 className="text-lg font-bold text-white tracking-tight ">Agri-Reasoning</h1>
+                <p className="text-lg font-bold text-white tracking-tight"> Advisor</p>
               </div>
             </div>
           </div>
 
-          {/* API Provider Selection */}
+          {/* API Provider Selection
           <div className="p-3 border-b border-gray-800">
             <SelectField
               label="API Provider"
@@ -579,7 +584,7 @@ const AgriAdvisoryInterface = () => {
               options={apiProviders}
               icon={Zap}
             />
-          </div>
+          </div> */}
 
           {/* Input Parameters */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin scrollbar-thumb-gray-700">
@@ -789,7 +794,6 @@ const AgriAdvisoryInterface = () => {
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <span className={`w-2 h-2 rounded-full animate-pulse ${getProviderColor()}`}></span>
-              {getProviderIcon()} Model: {getModelName()}
             </div>
           </div>
 
@@ -809,10 +813,7 @@ const AgriAdvisoryInterface = () => {
 
             {!response && !isGenerating && !error && (
               <div className="h-full flex flex-col items-center justify-center text-center">
-                <div className="w-24 h-24 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-3xl flex items-center justify-center mb-6 shadow-2xl shadow-emerald-500/10">
-                  <Leaf size={48} className="text-emerald-400" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-200 mb-2">Agri-Reasoning Model</h2>
+                <h2 className="text-4xl font-bold text-gray-200 mb-1">Saarthi 🌿</h2>
                 <p className="text-gray-500 max-w-md mb-8">
                   Enter your farming parameters in the sidebar and click "Generate Advisory" 
                   to receive AI-powered agricultural recommendations.
@@ -826,8 +827,6 @@ const AgriAdvisoryInterface = () => {
                 </div>
                 <div className="text-xs text-gray-600">
                   <span className="flex items-center gap-1">
-                    <span className={`w-2 h-2 rounded-full ${getProviderColor()}`}></span>
-                    Using {getProviderLabel()}
                   </span>
                 </div>
               </div>
@@ -910,7 +909,7 @@ const AgriAdvisoryInterface = () => {
           {/* Footer */}
           <div className="h-12 border-t border-gray-800 flex items-center justify-center bg-gray-900/30 backdrop-blur-xl">
             <p className="text-xs text-gray-600">
-              Powered by {getProviderLabel()} • Agri-Reasoning Interface
+              Powered by Soket AI Labs
             </p>
           </div>
         </div>
