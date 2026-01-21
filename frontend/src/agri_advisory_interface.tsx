@@ -3,7 +3,7 @@ import React from 'react';
 import { AlertCircle, ChevronDown, ChevronRight, Leaf, Loader2, Settings, Sparkles, ThermometerSun, Droplets, MapPin, Languages, Calendar, Layers, Sprout, Send, Brain, RefreshCw, Zap } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { sampleInput } from './sample_input';
-
+import { sampleInput2 } from './sample_input2';
 // API Configuration - reads from environment variables
 const API_CONFIG = {
   // Saarthi Agri-Model (In-house OpenWebUI)
@@ -200,7 +200,7 @@ const AgriAdvisoryInterface = () => {
     if (settings.previousCrop) parts.push(`Previous Crop: ${settings.previousCrop}`);
     if (settings.farmSize) parts.push(`Farm Size: ${settings.farmSize}`);
 
-    return `Generate comprehensive agricultural advisory for the following conditions:\n\n${parts.join('\n')}\n\nProvide detailed recommendations for:\n1. Optimal farming practices\n2. Pest and disease management\n3. Fertilizer recommendations\n4. Irrigation schedule\n5. Expected yield and harvest timing`;
+    return `Generate comprehensive agricultural advisory in Hindi (a little casual and friendly) for the following conditions:\n\n${parts.join('\n')}\n\nProvide recommendations for:\n1. Optimal farming practices\n2. Pest and disease management and prevention (natural remedies first, then chemical)\n3 Irrigation schedule\n4. Expected yield and harvest timing`;
   };
 
   // Parse streaming response with thinking token handling
@@ -282,14 +282,10 @@ const AgriAdvisoryInterface = () => {
       },
       body: JSON.stringify({
         model: API_CONFIG.saarthiModel,
-        messages: sampleInput,
-        // messages: [
-        //   {
-        //     role: 'system',
-        //     content: 'You are an expert agricultural advisor with deep knowledge of farming practices, crop management, pest control, and sustainable agriculture. Provide detailed, practical advice tailored to the specific conditions provided.'
-        //   },
-        //   { role: 'user', content: "Suggest me a crop for the given region and season" }
-        // ],
+        // messages: sampleInput,
+        messages: [sampleInput2[0], sampleInput2[1],
+          { role: 'user', content: prompt }
+        ],
         stream: true,
         temperature: 0.7,
         max_tokens: 4096,
