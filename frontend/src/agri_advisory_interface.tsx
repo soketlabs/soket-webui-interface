@@ -1,10 +1,10 @@
 /// <reference types="vite/client" />
-import React from 'react';
-import { AlertCircle, ChevronDown, ChevronRight, Leaf, Loader2, Settings, Sparkles, ThermometerSun, Droplets, MapPin, Languages, Calendar, Layers, Sprout, Send, Brain, RefreshCw, Zap, BarChart } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { AlertCircle, Brain, Calendar, ChevronDown, ChevronRight, Cloud, Layers, Leaf, Loader2, MapPin, RefreshCw, Send, Settings, Sparkles, Sprout } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { system_instructions } from './sample_input';
 import companyLogo from './Soket-Logo.svg';
+
 
 // API Configuration - reads from environment variables
 const API_CONFIG = {
@@ -26,6 +26,18 @@ const API_CONFIG = {
 // Default thinking token markers
 const DEFAULT_THINKING_START = '<unused0>';
 const DEFAULT_THINKING_END = '<unused1>';
+
+
+////////////////////new code ////////////////////////////////////
+
+
+
+
+
+
+
+
+////////////////////new code ////////////////////////////////////
 
 // API Provider type
 type ApiProvider = 'saarthi' | 'gemini' | 'litgpt';
@@ -119,29 +131,17 @@ const AgriAdvisoryInterface = () => {
   const thinkingBufferRef = useRef('');
   const animationFrameRef = useRef<number | null>(null);
 
+
   const [settings, setSettings] = useState({
-    // Basic
-    crop: '',
-    region: '',
-    language: 'English',
-    // Weather
-    temperature: '28',
-    humidity: '65',
-    rainfall: '150',
-    pressure: '1000',
-    season: 'Kharif',
-    // Soil
-    soilType: '',
-    // soilPh: '',
-    // soilMoisture: '',
-    // Advanced
+    month: '',
     growthStage: '',
+    weather: '',  
+    soilType: '',
     farmingPractice: '',
+    region: '',
+    language: '',
+    crop: '',
     stress: '',
-    // irrigationType: '',
-    // previousCrop: '',
-    // farmSize: '',
-    // Thinking tokens
     thinkingStartToken: DEFAULT_THINKING_START,
     thinkingEndToken: DEFAULT_THINKING_END,
   });
@@ -157,23 +157,15 @@ const AgriAdvisoryInterface = () => {
   // Build the prompt from settings
   const buildPrompt = () => {
     const parts: string[] = [];
-    
-    if (settings.crop) parts.push(`Crop: ${settings.crop}`);
+
+    if (settings.month) parts.push(`Month: ${settings.month}`);
+    if (settings.growthStage) parts.push(`Growth Stage: ${settings.growthStage}`);
+    if (settings.weather) parts.push(`Weather: ${settings.weather}`);
+    if (settings.soilType) parts.push(`Soil Type: ${settings.soilType}`);
+    if (settings.farmingPractice) parts.push(`Farming Practice: ${settings.farmingPractice}`);
     if (settings.region) parts.push(`Region: ${settings.region}`);
     if (settings.language !== 'English') parts.push(`Please respond in ${settings.language}`);
-    if (settings.season) parts.push(`Season: ${settings.season}`);
-    if (settings.temperature) parts.push(`Temperature: ${settings.temperature}°C`);
-    if (settings.humidity) parts.push(`Humidity: ${settings.humidity}%`);
-    if (settings.rainfall) parts.push(`Rainfall: ${settings.rainfall}mm`);
-    if (settings.pressure) parts.push(`Pressure: ${settings.pressure}`);
-    if (settings.soilType) parts.push(`Soil Type: ${settings.soilType}`);
-    // if (settings.soilPh) parts.push(`Soil pH: ${settings.soilPh}`);
-    // if (settings.soilMoisture) parts.push(`Soil Moisture: ${settings.soilMoisture}%`);
-    if (settings.growthStage) parts.push(`Growth Stage: ${settings.growthStage}`);
-    // if (settings.irrigationType) parts.push(`Irrigation: ${settings.irrigationType}`);
-    // if (settings.previousCrop) parts.push(`Previous Crop: ${settings.previousCrop}`);
-    // if (settings.farmSize) parts.push(`Farm Size: ${settings.farmSize}`);
-    if (settings.farmingPractice) parts.push(`Farming Practice: ${settings.farmingPractice}`);
+    if (settings.crop) parts.push(`Crop: ${settings.crop}`);
     if (settings.stress) parts.push(`Stress: ${settings.stress}`);
 
     const message_content = {
@@ -270,8 +262,10 @@ const AgriAdvisoryInterface = () => {
         model: API_CONFIG.saarthiModel,
         messages: messages,
         stream: true,
-        temperature: 0.7,
-        max_tokens: 4096,
+        temperature: 0.8,
+        top_p: 0.9,
+        repetition_penalty: 1.1,
+        max_tokens: 5000,
       }),
       signal,
     });
@@ -519,23 +513,19 @@ const AgriAdvisoryInterface = () => {
     }
   }, [displayedResponse, isThinking]);
 
-  const languages = ['English', 'Hindi'];
-  const seasons = ['Kharif', 'Rabi', 'Zaid', 'Year-round'];
-  const soilTypes = ['Alluvial', 'Black/Regur', 'Red', 'Laterite', 'Desert/Arid', 'Mountain', 'Peaty/Marshy', 'Sandy', 'Clay', 'Loamy', 'Saline'];
-  const irrigationTypes = ['Drip', 'Sprinkler', 'Flood/Surface', 'Furrow', 'Rain-fed', 'Canal'];
-  const growthStages = ['Pre-sowing', 'Germination', 'Vegetative', 'Flowering', 'Fruiting', 'Maturation', 'Harvest'];
+const languages = ['', 'English', 'Hindi'];
+const seasons = ['', 'Kharif', 'Rabi', 'Zaid', 'Year-round'];
+const soilTypes = ['', 'Alluvial', 'Black/Regur', 'Red', ];
+const irrigationTypes = ['', 'Drip', 'Sprinkler', 'Flood/Surface'];
+const growthStages = ['', 'Pre-sowing', 'Germination'];
 
-  // const apiProviders = [
-  //   { value: 'saarthi', label: '🌾 Saarthi Agri-Model' },
-  //   { value: 'gemini', label: '✨ Gemini 2.0 Flash' },
-  //   { value: 'litgpt', label: '🔧 Lit-GPT (Local)' },
-  // ];
+
 
   const getModelName = () => {
     switch (apiProvider) {
       case 'saarthi': return API_CONFIG.saarthiModel;
-      case 'gemini': return API_CONFIG.geminiModel;
-      case 'litgpt': return API_CONFIG.litgptModel;
+      // case 'gemini': return API_CONFIG.geminiModel;
+      // case 'litgpt': return API_CONFIG.litgptModel;
       default: return 'Unknown';
     }
   };
@@ -618,77 +608,42 @@ const AgriAdvisoryInterface = () => {
               isOpen={sections.basic}
               onToggle={() => toggleSection('basic')}
             >
-              <InputField
-                label="Crop *"
-                value={settings.crop}
-                onChange={(v) => handleInputChange('crop', v)}
-                placeholder="e.g., Cotton, Wheat, Rice"
-                icon={Leaf}
-              />
-              <InputField
-                label="Region *"
-                value={settings.region}
-                onChange={(v) => handleInputChange('region', v)}
-                placeholder="e.g., Punjab, Maharashtra"
-                icon={MapPin}
-              />
-              <SelectField
-                label="Language"
-                value={settings.language}
-                onChange={(v) => handleInputChange('language', v)}
-                options={languages}
-                icon={Languages}
-              />
-              <SelectField
-                label="Season"
-                value={settings.season}
-                onChange={(v) => handleInputChange('season', v)}
-                options={seasons}
+            <InputField
+                label="Month"
+                value={settings.month}
+                onChange={(v) => handleInputChange('month', v)}
+                placeholder="e.g.,January,February"
                 icon={Calendar}
+            />
+            <InputField
+              label="Growth Stage"
+              value={settings.growthStage}
+              onChange={(v) => handleInputChange('growthStage', v)}
+              placeholder="e.g., Flowering, Vegetative, Fruiting"
+              icon={Sprout}
+            />
+            <InputField
+                label="Weather"
+                value={settings.weather}
+                onChange={(v) => handleInputChange('weather', v)}
+                placeholder="e.g., Hot and dry, Cloudy with light rain"
+                icon={Cloud}
               />
+             <InputField
+              label="Soil Type"
+              value={settings.soilType}
+              onChange={(v) => handleInputChange('soilType', v)}
+              placeholder="e.g., Black soil, Sandy loam, Red laterite"
+              icon={Layers}
+            />
+              <InputField
+            label="Farming Practice"
+            value={settings.farmingPractice}
+            onChange={(v) => handleInputChange('farmingPractice', v)}
+            placeholder="e.g., Drip irrigation, Organic farming"
+            icon={Settings}
+            />
             </CollapsibleSection>
-
-            {/* Weather Conditions */}
-            <CollapsibleSection
-              title="Weather Conditions"
-              icon={ThermometerSun}
-              isOpen={sections.weather}
-              onToggle={() => toggleSection('weather')}
-            >
-              <InputField
-                label="Average Temperature (°C)"
-                value={settings.temperature}
-                onChange={(v) => handleInputChange('temperature', v)}
-                placeholder="e.g., 28"
-                icon={ThermometerSun}
-                type="number"
-              />
-              <InputField
-                label="Humidity (%)"
-                value={settings.humidity}
-                onChange={(v) => handleInputChange('humidity', v)}
-                placeholder="e.g., 65"
-                icon={Droplets}
-                type="number"
-              />
-              <InputField
-                label="Rainfall (mm)"
-                value={settings.rainfall}
-                onChange={(v) => handleInputChange('rainfall', v)}
-                placeholder="e.g., 150"
-                icon={Droplets}
-                type="number"
-              />
-              <InputField
-                label="{Pressure} (hPa)"
-                value={settings.pressure}
-                onChange={(v) => handleInputChange('pressure', v)}
-                placeholder="e.g., 150"
-                icon={BarChart}
-                type="number"
-              />
-            </CollapsibleSection>
-
             {/* Soil Information */}
             <CollapsibleSection
               title="Soil Information"
@@ -696,27 +651,27 @@ const AgriAdvisoryInterface = () => {
               isOpen={sections.soil}
               onToggle={() => toggleSection('soil')}
             >
-              <SelectField
-                label="Soil Type"
-                value={settings.soilType}
-                onChange={(v) => handleInputChange('soilType', v)}
-                options={['', ...soilTypes]}
-                icon={Layers}
+            <InputField
+                label="Region *"
+                value={settings.region}
+                onChange={(v) => handleInputChange('region', v)}
+                placeholder="e.g., Punjab, Maharashtra"
+                icon={MapPin}
               />
-              {/* <InputField
-                label="Soil pH"
-                value={settings.soilPh}
-                onChange={(v) => handleInputChange('soilPh', v)}
-                placeholder="e.g., 6.5"
-                type="number"
-              /> */}
-              {/* <InputField
-                label="Soil Moisture (%)"
-                value={settings.soilMoisture}
-                onChange={(v) => handleInputChange('soilMoisture', v)}
-                placeholder="e.g., 40"
-                type="number"
-              /> */}
+            <SelectField
+                label="Language"
+                value={settings.language}
+                onChange={(v) => handleInputChange('language', v)}
+                options={['', ...languages]}
+              />
+
+            <InputField
+                label="Crop *"
+                value={settings.crop}
+                onChange={(v) => handleInputChange('crop', v)}
+                placeholder="e.g., Cotton, Wheat, Rice"
+                icon={Leaf}
+              />
             </CollapsibleSection>
 
             {/* Advanced Settings */}
@@ -726,18 +681,6 @@ const AgriAdvisoryInterface = () => {
               isOpen={sections.advanced}
               onToggle={() => toggleSection('advanced')}
             >
-              <SelectField
-                label="Growth Stage"
-                value={settings.growthStage}
-                onChange={(v) => handleInputChange('growthStage', v)}
-                options={['', ...growthStages]}
-              />
-              <SelectField
-                label="Farming Practice"
-                value={settings.farmingPractice}
-                onChange={(v) => handleInputChange('farmingPractice', v)}
-                options={['', ...irrigationTypes]}
-              />
               <InputField
                 label="Stress"
                 value={settings.stress}
@@ -745,25 +688,6 @@ const AgriAdvisoryInterface = () => {
                 placeholder="e.g., Pests, Diseases, Weather"
                 icon={AlertCircle}
               />
-              {/* <SelectField
-                label="Irrigation Type"
-                value={settings.irrigationType}
-                onChange={(v) => handleInputChange('irrigationType', v)}
-                options={['', ...irrigationTypes]}
-              /> */}
-              {/* <InputField
-                label="Previous Crop"
-                value={settings.previousCrop}
-                onChange={(v) => handleInputChange('previousCrop', v)}
-                placeholder="e.g., Soybean"
-              /> */}
-              {/* <InputField
-                label="Farm Size (acres)"
-                value={settings.farmSize}
-                onChange={(v) => handleInputChange('farmSize', v)}
-                placeholder="e.g., 5"
-                type="number"
-              /> */}
             </CollapsibleSection>
 
             {/* Thinking Tokens Configuration */}
@@ -895,9 +819,15 @@ const AgriAdvisoryInterface = () => {
                         📍 {settings.region}
                       </span>
                     )}
-                    {settings.season && (
+                    {settings.weather && (
                       <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
-                        📅 {settings.season}
+                        🌤️ {settings.weather}
+                      </span>
+                    )}
+
+                    {settings.month && (
+                      <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                        📅 {settings.month}
                       </span>
                     )}
                     {/* {settings.temperature && (
