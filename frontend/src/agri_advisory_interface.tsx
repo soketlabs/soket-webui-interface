@@ -353,9 +353,9 @@
 //     setSections((prev) => ({ ...prev, [section]: !prev[section] }));
 //   };
 
-//   const handleInputChange = (field: string, value: string) => {
-//     setSettings((prev) => ({ ...prev, [field]: value }));
-//   };
+  // const handleInputChange = (field: string, value: string) => {
+  //   setSettings((prev) => ({ ...prev, [field]: value }));
+  // };
 
 //   const SYSTEM_PROMPT = `You are a helpful District Agricultural Officer providing crop advisory to farmers based on location and various climatic conditions given as input.
 
@@ -1192,15 +1192,16 @@ import companyLogo from './Soket-Logo.svg';
 
 // API Configuration
 const API_CONFIG = {
-  // Saarthi Agri-Model (In-house OpenWebUI)
+  // Saarthi Agri-Model (In-house OpenWeb API)
   saarthiApiKey: import.meta.env.VITE_SAARTHI_API_KEY || 'sk-9d09b7df9cbd5daebca67cbbb45e9f0c',
   saarthiBaseUrl: import.meta.env.VITE_SAARTHI_BASE_URL || 'http://localhost:8000/v1/chat/completions',
   saarthiModel: 'soketlabs/saarthi-agri-v1',
   
   // ElevenLabs API
-  elevenlabsApiKey: import.meta.env.VITE_ELEVENLABS_API_KEY || 'sk_ca696bb73eac6ab599a26604e8b4f9946f2e49dc2d30361f',
-  elevenlabsVoiceId: 'XrExE9yKIg1WjnnlVkGX', // Adam voice - you can change this
+  // elevenlabsApiKey: import.meta.env.VITE_ELEVENLABS_API_KEY || 'sk_ca696bb73eac6ab599a26604e8b4f9946f2e49dc2d30361f',
+  // elevenlabsVoiceId: 'XrExE9yKIg1WjnnlVkGX', // Adam voice - you can change this
 };
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:9000";
 
 // Default thinking token markers
 const DEFAULT_THINKING_START = '<unused0>';
@@ -1387,6 +1388,21 @@ const AgriAdvisoryInterface = () => {
     thinking: false,
   });
 
+  const toggleSection = (section: string) => {
+    setSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  // ✅ ADD THIS
+  const handleInputChange = (field: string, value: string) => {
+    setSettings(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [response, setResponse] = useState('');
   const [displayedResponse, setDisplayedResponse] = useState('');
@@ -1401,16 +1417,18 @@ const AgriAdvisoryInterface = () => {
   const responseRef = useRef<HTMLDivElement>(null);
   const thinkingRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
+  // const audioContextRef = useRef<AudioContext | null>(null);
   
   // For chunked streaming audio playback
-  const audioQueueRef = useRef<AudioBuffer[]>([]);
-  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const isPlayingRef = useRef(false);
-  const currentChunkIndexRef = useRef(0);
-  const audioStartTimeRef = useRef(0);
-  const pausedAtTimeRef = useRef(0);
-  const currentTextRef = useRef('');
+  // const audioQueueRef = useRef<AudioBuffer[]>([]);
+  // const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  // const isPlayingRef = useRef(false);
+  // const currentChunkIndexRef = useRef(0);
+  // const audioStartTimeRef = useRef(0);
+  // const pausedAtTimeRef = useRef(0);
+  // const currentTextRef = useRef('');
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   
   // Refs for smooth streaming animation
   const responseBufferRef = useRef('');
@@ -1432,256 +1450,278 @@ const AgriAdvisoryInterface = () => {
   });
 
   // Initialize audio context
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+  // useEffect(() => {
+  //   if (typeof window !== 'undefined') {
+  //     audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       
-      // Cleanup on unmount
-      return () => {
-        if (audioContextRef.current) {
-          audioContextRef.current.close();
-        }
-      };
-    }
-  }, []);
+  //     // Cleanup on unmount
+  //     return () => {
+  //       if (audioContextRef.current) {
+  //         audioContextRef.current.close();
+  //       }
+  //     };
+  //   }
+  // }, []);
 
   // Split text into smaller chunks for faster streaming
-  const splitTextIntoChunks = (text: string, maxChunkSize: number = 500): string[] => {
-    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-    const chunks: string[] = [];
-    let currentChunk = '';
+  // const splitTextIntoChunks = (text: string, maxChunkSize: number = 500): string[] => {
+  //   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  //   const chunks: string[] = [];
+  //   let currentChunk = '';
 
-    for (const sentence of sentences) {
-      if ((currentChunk + sentence).length > maxChunkSize && currentChunk.length > 0) {
-        chunks.push(currentChunk.trim());
-        currentChunk = sentence;
-      } else {
-        currentChunk += ' ' + sentence;
-      }
-    }
+  //   for (const sentence of sentences) {
+  //     if ((currentChunk + sentence).length > maxChunkSize && currentChunk.length > 0) {
+  //       chunks.push(currentChunk.trim());
+  //       currentChunk = sentence;
+  //     } else {
+  //       currentChunk += ' ' + sentence;
+  //     }
+  //   }
 
-    if (currentChunk.trim().length > 0) {
-      chunks.push(currentChunk.trim());
-    }
+  //   if (currentChunk.trim().length > 0) {
+  //     chunks.push(currentChunk.trim());
+  //   }
 
-    return chunks;
-  };
+  //   return chunks;
+  // };
 
   // Clean text for speech
-  const cleanTextForSpeech = (text: string): string => {
-    return text
-      .replace(/#+\s*/g, '')
-      .replace(/\*\*/g, '')
-      .replace(/\*/g, '')
-      .replace(/`/g, '')
-      .replace(/\[.*?\]\(.*?\)/g, '')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-  };
+  // const cleanTextForSpeech = (text: string): string => {
+  //   return text
+  //     .replace(/#+\s*/g, '')
+  //     .replace(/\*\*/g, '')
+  //     .replace(/\*/g, '')
+  //     .replace(/`/g, '')
+  //     .replace(/\[.*?\]\(.*?\)/g, '')
+  //     .replace(/\n{3,}/g, '\n\n')
+  //     .trim();
+  // };
 
   // Fetch audio chunk from ElevenLabs
-  const fetchAudioChunk = async (text: string): Promise<AudioBuffer | null> => {
-    if (!audioContextRef.current) return null;
+  // const fetchAudioChunk = async (text: string): Promise<AudioBuffer | null> => {
+  //   if (!audioContextRef.current) return null;
 
-    try {
-      const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${API_CONFIG.elevenlabsVoiceId}/stream`,
-        {
-          method: 'POST',
-          headers: {
-            'Accept': 'audio/mpeg',
-            'Content-Type': 'application/json',
-            'xi-api-key': API_CONFIG.elevenlabsApiKey,
-          },
-          body: JSON.stringify({
-            text: text,
-            model_id: 'eleven_turbo_v2_5', // Faster model for lower latency
-            voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.75,
-              style: 0.0,
-              use_speaker_boost: true
-            },
-            optimize_streaming_latency: 4, // Maximum optimization for streaming
-          }),
-        }
-      );
+  //   try {
+  //     const response = await fetch(
+  //       `https://api.elevenlabs.io/v1/text-to-speech/${API_CONFIG.elevenlabsVoiceId}/stream`,
+  //       {
+  //         method: 'POST',
+  //         headers: {
+  //           'Accept': 'audio/mpeg',
+  //           'Content-Type': 'application/json',
+  //           'xi-api-key': API_CONFIG.elevenlabsApiKey,
+  //         },
+  //         body: JSON.stringify({
+  //           text: text,
+  //           model_id: 'eleven_turbo_v2_5', // Faster model for lower latency
+  //           voice_settings: {
+  //             stability: 0.5,
+  //             similarity_boost: 0.75,
+  //             style: 0.0,
+  //             use_speaker_boost: true
+  //           },
+  //           optimize_streaming_latency: 4, // Maximum optimization for streaming
+  //         }),
+  //       }
+  //     );
 
-      if (!response.ok) {
-        throw new Error(`ElevenLabs API error: ${response.status}`);
-      }
+  //     if (!response.ok) {
+  //       throw new Error(`ElevenLabs API error: ${response.status}`);
+  //     }
 
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+  //     const arrayBuffer = await response.arrayBuffer();
+  //     const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
       
-      return audioBuffer;
-    } catch (error) {
-      console.error('Error fetching audio chunk:', error);
-      return null;
-    }
-  };
+  //     return audioBuffer;
+  //   } catch (error) {
+  //     console.error('Error fetching audio chunk:', error);
+  //     return null;
+  //   }
+  // };
 
   // Play audio from queue with resume capability
-  const playFromQueue = (startFromChunk: number = 0, offsetTime: number = 0) => {
-    if (!audioContextRef.current || audioQueueRef.current.length === 0) return;
+  // const playFromQueue = (startFromChunk: number = 0, offsetTime: number = 0) => {
+  //   if (!audioContextRef.current || audioQueueRef.current.length === 0) return;
 
-    if (audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume();
-    }
+  //   if (audioContextRef.current.state === 'suspended') {
+  //     audioContextRef.current.resume();
+  //   }
 
-    isPlayingRef.current = true;
-    setIsPlayingAudio(true);
-    setIsPausedAudio(false);
+  //   isPlayingRef.current = true;
+  //   setIsPlayingAudio(true);
+  //   setIsPausedAudio(false);
 
-    const playChunk = (chunkIndex: number, offset: number = 0) => {
-      if (chunkIndex >= audioQueueRef.current.length || !isPlayingRef.current) {
-        // Playback completed
-        isPlayingRef.current = false;
-        setIsPlayingAudio(false);
-        currentChunkIndexRef.current = 0;
-        pausedAtTimeRef.current = 0;
-        return;
-      }
+  //   const playChunk = (chunkIndex: number, offset: number = 0) => {
+  //     if (chunkIndex >= audioQueueRef.current.length || !isPlayingRef.current) {
+  //       // Playback completed
+  //       isPlayingRef.current = false;
+  //       setIsPlayingAudio(false);
+  //       currentChunkIndexRef.current = 0;
+  //       pausedAtTimeRef.current = 0;
+  //       return;
+  //     }
 
-      const audioBuffer = audioQueueRef.current[chunkIndex];
-      const source = audioContextRef.current!.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioContextRef.current!.destination);
+  //     const audioBuffer = audioQueueRef.current[chunkIndex];
+  //     const source = audioContextRef.current!.createBufferSource();
+  //     source.buffer = audioBuffer;
+  //     source.connect(audioContextRef.current!.destination);
 
-      currentSourceRef.current = source;
-      currentChunkIndexRef.current = chunkIndex;
-      audioStartTimeRef.current = audioContextRef.current!.currentTime - offset;
+  //     currentSourceRef.current = source;
+  //     currentChunkIndexRef.current = chunkIndex;
+  //     audioStartTimeRef.current = audioContextRef.current!.currentTime - offset;
 
-      source.onended = () => {
-        if (isPlayingRef.current) {
-          playChunk(chunkIndex + 1);
-        }
-      };
+  //     source.onended = () => {
+  //       if (isPlayingRef.current) {
+  //         playChunk(chunkIndex + 1);
+  //       }
+  //     };
 
-      // Start playback with offset for resume
-      source.start(0, offset);
-    };
+  //     // Start playback with offset for resume
+  //     source.start(0, offset);
+  //   };
 
-    playChunk(startFromChunk, offsetTime);
-  };
+  //   playChunk(startFromChunk, offsetTime);
+  // };
 
   // Stream and play audio in chunks for instant playback
-  const streamAndPlayAudio = async (text: string) => {
-    if (!audioContextRef.current) return;
+  // const streamAndPlayAudio = async (text: string) => {
+  //   if (!audioContextRef.current) return;
 
-    const cleanText = cleanTextForSpeech(text);
-    if (!cleanText) return;
+  //   const cleanText = cleanTextForSpeech(text);
+  //   if (!cleanText) return;
 
-    // Reset audio state
-    audioQueueRef.current = [];
-    currentChunkIndexRef.current = 0;
-    pausedAtTimeRef.current = 0;
-    currentTextRef.current = cleanText;
+  //   // Reset audio state
+  //   audioQueueRef.current = [];
+  //   currentChunkIndexRef.current = 0;
+  //   pausedAtTimeRef.current = 0;
+  //   currentTextRef.current = cleanText;
 
-    // Split into smaller chunks for faster initial playback
-    const chunks = splitTextIntoChunks(cleanText, 300);
+  //   // Split into smaller chunks for faster initial playback
+  //   const chunks = splitTextIntoChunks(cleanText, 300);
     
-    console.log(`Streaming ${chunks.length} chunks for instant playback...`);
+  //   console.log(`Streaming ${chunks.length} chunks for instant playback...`);
 
-    setIsPlayingAudio(true);
-    isPlayingRef.current = true;
+  //   setIsPlayingAudio(true);
+  //   isPlayingRef.current = true;
 
-    // Fetch and play chunks progressively
-    for (let i = 0; i < chunks.length; i++) {
-      if (!isPlayingRef.current) break;
+  //   // Fetch and play chunks progressively
+  //   for (let i = 0; i < chunks.length; i++) {
+  //     if (!isPlayingRef.current) break;
 
-      const audioBuffer = await fetchAudioChunk(chunks[i]);
+  //     const audioBuffer = await fetchAudioChunk(chunks[i]);
       
-      if (audioBuffer) {
-        audioQueueRef.current.push(audioBuffer);
+  //     if (audioBuffer) {
+  //       audioQueueRef.current.push(audioBuffer);
 
-        // Start playing as soon as first chunk is ready
-        if (i === 0) {
-          playFromQueue(0, 0);
-        }
-      }
-    }
-  };
+  //       // Start playing as soon as first chunk is ready
+  //       if (i === 0) {
+  //         playFromQueue(0, 0);
+  //       }
+  //     }
+  //   }
+  // };
 
   // Pause audio playback
-  const pauseAudioPlayback = () => {
-    if (!audioContextRef.current || !currentSourceRef.current) return;
+  // const pauseAudioPlayback = () => {
+  //   if (!audioContextRef.current || !currentSourceRef.current) return;
 
-    isPlayingRef.current = false;
+  //   isPlayingRef.current = false;
     
-    // Calculate current playback position
-    const currentTime = audioContextRef.current.currentTime;
-    const elapsedTime = currentTime - audioStartTimeRef.current;
+  //   // Calculate current playback position
+  //   const currentTime = audioContextRef.current.currentTime;
+  //   const elapsedTime = currentTime - audioStartTimeRef.current;
     
-    // Store the position within the current chunk
-    const currentBuffer = audioQueueRef.current[currentChunkIndexRef.current];
-    if (currentBuffer) {
-      pausedAtTimeRef.current = Math.min(elapsedTime, currentBuffer.duration);
-    }
+  //   // Store the position within the current chunk
+  //   const currentBuffer = audioQueueRef.current[currentChunkIndexRef.current];
+  //   if (currentBuffer) {
+  //     pausedAtTimeRef.current = Math.min(elapsedTime, currentBuffer.duration);
+  //   }
 
-    // Stop current playback
-    if (currentSourceRef.current) {
-      currentSourceRef.current.stop();
-      currentSourceRef.current = null;
-    }
+  //   // Stop current playback
+  //   if (currentSourceRef.current) {
+  //     currentSourceRef.current.stop();
+  //     currentSourceRef.current = null;
+  //   }
 
-    setIsPlayingAudio(false);
-    setIsPausedAudio(true);
-  };
+  //   setIsPlayingAudio(false);
+  //   setIsPausedAudio(true);
+  // };
 
-  // Resume audio playback from where it was paused
-  const resumeAudioPlayback = () => {
-    if (!audioContextRef.current || audioQueueRef.current.length === 0) return;
+  // // Resume audio playback from where it was paused
+  // const resumeAudioPlayback = () => {
+  //   if (!audioContextRef.current || audioQueueRef.current.length === 0) return;
 
-    const currentBuffer = audioQueueRef.current[currentChunkIndexRef.current];
+  //   const currentBuffer = audioQueueRef.current[currentChunkIndexRef.current];
     
-    if (pausedAtTimeRef.current >= currentBuffer.duration - 0.1) {
-      // If we're at the end of current chunk, move to next
-      playFromQueue(currentChunkIndexRef.current + 1, 0);
-    } else {
-      // Resume from paused position
-      playFromQueue(currentChunkIndexRef.current, pausedAtTimeRef.current);
-    }
-  };
+  //   if (pausedAtTimeRef.current >= currentBuffer.duration - 0.1) {
+  //     // If we're at the end of current chunk, move to next
+  //     playFromQueue(currentChunkIndexRef.current + 1, 0);
+  //   } else {
+  //     // Resume from paused position
+  //     playFromQueue(currentChunkIndexRef.current, pausedAtTimeRef.current);
+  //   }
+  // };
 
   // Stop audio playback completely
   const stopAudioPlayback = () => {
-    isPlayingRef.current = false;
-    
-    if (currentSourceRef.current) {
-      currentSourceRef.current.stop();
-      currentSourceRef.current = null;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
     }
 
-    audioQueueRef.current = [];
-    currentChunkIndexRef.current = 0;
-    pausedAtTimeRef.current = 0;
-    
     setIsPlayingAudio(false);
     setIsPausedAudio(false);
   };
 
+
   // Toggle audio playback
-  const toggleAudioPlayback = () => {
-    if (isPlayingAudio) {
-      // Pause if playing
-      pauseAudioPlayback();
-    } else if (isPausedAudio) {
-      // Resume if paused
-      resumeAudioPlayback();
-    } else if (response) {
-      // Start new playback
-      streamAndPlayAudio(response);
+  const toggleAudioPlayback = async () => {
+    if (!response) return;
+
+    // Pause
+    if (audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause();
+      setIsPlayingAudio(false);
+      setIsPausedAudio(true);
+      return;
     }
+
+    // Resume
+    if (audioRef.current && audioRef.current.paused) {
+      await audioRef.current.play();
+      setIsPlayingAudio(true);
+      setIsPausedAudio(false);
+      return;
+    }
+
+    // Fresh playback
+    const advisoryId = crypto.randomUUID();
+
+    // 🔥 Tell backend to generate FIRST
+    await fetch(`${API_BASE}/api/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        advisoryId,
+        text: response
+      })
+    });
+
+    // 🔥 Now stream it
+    const audio = new Audio(`${API_BASE}/api/tts/${advisoryId}`);
+
+    audioRef.current = audio;
+
+    audio.onended = () => {
+      setIsPlayingAudio(false);
+      setIsPausedAudio(false);
+    };
+
+    await audio.play();
+    setIsPlayingAudio(true);
   };
 
-  const toggleSection = (section: string) => {
-    setSections((prev) => ({ ...prev, [section]: !prev[section] }));
-  };
 
-  const handleInputChange = (field: string, value: string) => {
-    setSettings((prev) => ({ ...prev, [field]: value }));
-  };
 
   const SYSTEM_PROMPT = `You are a helpful District Agricultural Officer providing crop advisory to farmers based on location and various climatic conditions given as input.
 
