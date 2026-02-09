@@ -1,4 +1,6 @@
 
+// new version with pause working
+
 /// <reference types="vite/client" />
 import { AlertCircle, Brain, Calendar, ChevronDown, ChevronRight, Cloud, Layers, Leaf, Loader2, MapPin, RefreshCw, Send, Settings, Sparkles, Sprout, Volume2, VolumeX, Zap } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
@@ -29,8 +31,148 @@ const apiProviders = [
 // API Provider type - only Saarthi
 type ApiProvider = 'saarthi';
 
-// Dropdown options for each field
-const DROPDOWN_OPTIONS = {
+// Hindi to English mapping for UI display
+const HINDI_TO_ENGLISH_MAP = {
+  // Months
+  'January': 'January',
+  'February': 'February', 
+  'March': 'March',
+  'April': 'April',
+  'May': 'May',
+  'June': 'June',
+  'July': 'July',
+  'August': 'August',
+  'September': 'September',
+  'October': 'October',
+  'November': 'November',
+  'December': 'December',
+  
+  // Growth Stages
+  'फूल आना': 'Flowering',
+  'बाल निकलना': 'Tillering',
+  'पुष्पन': 'Bloom',
+  'पकना': 'Ripening',
+  'दूधिया अवस्था': 'Milky Stage',
+  'कटाई तैयार': 'Harvest Ready',
+  
+  // Weather
+  'गरम और आर्द्र मौसम': 'Hot and Humid Weather',
+  'ठंडी रात और हल्की नमी': 'Cool Nights with Light Moisture',
+  'सुबह ठंड और धूप': 'Cool Mornings with Sunshine',
+  'तेज धूप और गर्मी': 'Intense Sun and Heat',
+  'बादल छाए रहना': 'Cloudy Conditions',
+  'ठंड और सूखा': 'Cold and Dry',
+  
+  // Soil Types
+  'काली मिट्टी': 'Black Soil',
+  'दोमट मिट्टी': 'Loamy Soil',
+  'बलुई दोमट मिट्टी': 'Sandy Loam Soil',
+  'लाल मिट्टी': 'Red Soil',
+  'कंकरीली मिट्टी': 'Gravelly Soil',
+  'पथरीली मिट्टी': 'Rocky Soil',
+  
+  // Farming Practices
+  'सामान्य खेती': 'Conventional Farming',
+  'जैविक खेती': 'Organic Farming',
+  'समेकित कृषि': 'Integrated Farming',
+  'बारानी खेती': 'Rainfed Farming',
+  'संरक्षण कृषि': 'Conservation Agriculture',
+  
+  // Regions
+  'महाराष्ट्र': 'Maharashtra',
+  'उत्तर प्रदेश': 'Uttar Pradesh',
+  'मध्य प्रदेश': 'Madhya Pradesh',
+  'छत्तीसगढ़': 'Chhattisgarh',
+  'हिमाचल प्रदेश': 'Himachal Pradesh',
+  
+  // Crops
+  'कपास': 'Cotton',
+  'गेहूं': 'Wheat',
+  'चना': 'Chickpea',
+  'धान (नर्सरी)': 'Paddy (Nursery)',
+  'सोयाबीन': 'Soybean',
+  
+  // Stress Factors
+  'सफेद मक्खी': 'Whitefly',
+  'पीला रतुआ रोग': 'Yellow Rust Disease',
+  'कीट संक्रमण': 'Insect Infestation',
+  'खैरा रोग': 'Khaira Disease',
+  'पीला मोज़ेक वायरस': 'Yellow Mosaic Virus',
+  'पाउडरी मिल्ड्यू': 'Powdery Mildew'
+};
+
+// Reverse mapping for lookup
+const ENGLISH_TO_HINDI_MAP = Object.entries(HINDI_TO_ENGLISH_MAP).reduce((acc, [hindi, english]) => {
+  acc[english as string] = hindi;
+  return acc;
+}, {} as Record<string, string>);
+
+// Dropdown options for UI (English display)
+const DROPDOWN_OPTIONS_UI = {
+  month: [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ],
+  growthStage: [
+    'Flowering',
+    'Tillering', 
+    'Bloom',
+    'Ripening',
+    'Milky Stage',
+    'Harvest Ready'
+  ],
+  weather: [
+    'Hot and Humid Weather',
+    'Cool Nights with Light Moisture',
+    'Cool Mornings with Sunshine',
+    'Intense Sun and Heat',
+    'Cloudy Conditions',
+    'Cold and Dry'
+  ],
+  soilType: [
+    'Black Soil',
+    'Loamy Soil',
+    'Sandy Loam Soil',
+    'Red Soil',
+    'Gravelly Soil',
+    'Rocky Soil'
+  ],
+  farmingPractice: [
+    'Conventional Farming',
+    'Organic Farming',
+    'Integrated Farming',
+    'Rainfed Farming',
+    'Conservation Agriculture'
+  ],
+  region: [
+    'Maharashtra',
+    'Uttar Pradesh',
+    'Madhya Pradesh',
+    'Chhattisgarh',
+    'Himachal Pradesh'
+  ],
+  language: [
+    'Hindi',
+  ],
+  crop: [
+    'Cotton',
+    'Wheat',
+    'Chickpea',
+    'Paddy (Nursery)',
+    'Soybean'
+  ],
+  stress: [
+    'Whitefly',
+    'Yellow Rust Disease',
+    'Insect Infestation',
+    'Khaira Disease',
+    'Yellow Mosaic Virus',
+    'Powdery Mildew'
+  ]
+};
+
+// Dropdown options for backend (Hindi)
+const DROPDOWN_OPTIONS_BACKEND = {
   month: [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
@@ -64,7 +206,7 @@ const DROPDOWN_OPTIONS = {
     'जैविक खेती',
     'समेकित कृषि',
     'बारानी खेती',
-    'संरक्षण खेती'
+    'संरक्षण कृषि'
   ],
   region: [
     'महाराष्ट्र',
@@ -202,6 +344,9 @@ const AgriAdvisoryInterface = () => {
     thinking: false,
   });
 
+  // State for reasoning section expandability
+  const [reasoningExpanded, setReasoningExpanded] = useState(false);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [response, setResponse] = useState('');
   const [displayedResponse, setDisplayedResponse] = useState('');
@@ -212,27 +357,43 @@ const AgriAdvisoryInterface = () => {
   const [apiProvider, setApiProvider] = useState<ApiProvider>('saarthi');
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isPausedAudio, setIsPausedAudio] = useState(false);
+  const [autoPlayAudio, setAutoPlayAudio] = useState(true);
   
-  const responseRef = useRef<HTMLDivElement>(null);
+  const responseContainerRef = useRef<HTMLDivElement>(null);
+  const responseContentRef = useRef<HTMLDivElement>(null);
   const thinkingRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   
-  // For chunked streaming audio playback
-  const audioQueueRef = useRef<AudioBuffer[]>([]);
+  // Enhanced audio playback system for continuous streaming with pause/resume support
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const nextSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const isPlayingRef = useRef(false);
-  const currentChunkIndexRef = useRef(0);
-  const audioStartTimeRef = useRef(0);
-  const pausedAtTimeRef = useRef(0);
-  const currentTextRef = useRef('');
+  const audioQueueRef = useRef<Array<{ text: string; buffer?: AudioBuffer }>>([]);
+  const isProcessingAudioRef = useRef(false);
+  const isFetchingAudioRef = useRef(false);
+  const currentTextChunkRef = useRef('');
+  const wordCountRef = useRef(0);
+  const MIN_WORDS_FOR_AUDIO = 30;
+  const hasAudioStartedRef = useRef(false);
+  const scheduledSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const nextPlayTimeRef = useRef<number>(0);
+  const manualStopRef = useRef(false); // Flag to prevent onended from corrupting state on manual .stop()
+  const playbackVersionRef = useRef(0); // Incremented on pause/stop to invalidate in-flight async playback calls
+  
+  // FIXED: Better pause/resume tracking with proper state management
+  const pausedAtTimeRef = useRef<number>(0);
+  const currentChunkIndexRef = useRef<number>(-1);
+  const allProcessedChunksRef = useRef<Array<{ text: string; buffer?: AudioBuffer }>>([]);
+  const chunkStartTimeRef = useRef<number>(0); // Track when current chunk started playing
   
   // Refs for smooth streaming animation
   const responseBufferRef = useRef('');
   const thinkingBufferRef = useRef('');
   const animationFrameRef = useRef<number | null>(null);
 
-  const [settings, setSettings] = useState({
+  // Store both UI (English) and backend (Hindi) values
+  const [uiSettings, setUiSettings] = useState({
     month: '',
     growthStage: '',
     weather: '',  
@@ -246,12 +407,40 @@ const AgriAdvisoryInterface = () => {
     thinkingEndToken: DEFAULT_THINKING_END,
   });
 
+  // Convert UI English value to Hindi for backend
+  const convertToHindiForBackend = (englishValue: string, field: string): string => {
+    if (!englishValue) return '';
+    
+    if (field === 'month') {
+      return englishValue;
+    }
+    
+    const hindiValue = ENGLISH_TO_HINDI_MAP[englishValue];
+    return hindiValue || englishValue;
+  };
+
+  // Get backend settings (Hindi values)
+  const getBackendSettings = () => {
+    return {
+      month: uiSettings.month,
+      growthStage: convertToHindiForBackend(uiSettings.growthStage, 'growthStage'),
+      weather: convertToHindiForBackend(uiSettings.weather, 'weather'),
+      soilType: convertToHindiForBackend(uiSettings.soilType, 'soilType'),
+      farmingPractice: convertToHindiForBackend(uiSettings.farmingPractice, 'farmingPractice'),
+      region: convertToHindiForBackend(uiSettings.region, 'region'),
+      language: uiSettings.language,
+      crop: convertToHindiForBackend(uiSettings.crop, 'crop'),
+      stress: convertToHindiForBackend(uiSettings.stress, 'stress'),
+      thinkingStartToken: uiSettings.thinkingStartToken,
+      thinkingEndToken: uiSettings.thinkingEndToken,
+    };
+  };
+
   // Initialize audio context
   useEffect(() => {
     if (typeof window !== 'undefined') {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       
-      // Cleanup on unmount
       return () => {
         if (audioContextRef.current) {
           audioContextRef.current.close();
@@ -260,29 +449,7 @@ const AgriAdvisoryInterface = () => {
     }
   }, []);
 
-  // Split text into smaller chunks for faster streaming
-  const splitTextIntoChunks = (text: string, maxChunkSize: number = 500): string[] => {
-    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-    const chunks: string[] = [];
-    let currentChunk = '';
-
-    for (const sentence of sentences) {
-      if ((currentChunk + sentence).length > maxChunkSize && currentChunk.length > 0) {
-        chunks.push(currentChunk.trim());
-        currentChunk = sentence;
-      } else {
-        currentChunk += ' ' + sentence;
-      }
-    }
-
-    if (currentChunk.trim().length > 0) {
-      chunks.push(currentChunk.trim());
-    }
-
-    return chunks;
-  };
-
-  // Clean text for speech
+  // Clean text for speech - enhanced for better sentence detection
   const cleanTextForSpeech = (text: string): string => {
     return text
       .replace(/#+\s*/g, '')
@@ -290,203 +457,561 @@ const AgriAdvisoryInterface = () => {
       .replace(/\*/g, '')
       .replace(/`/g, '')
       .replace(/\[.*?\]\(.*?\)/g, '')
-      .replace(/\n{3,}/g, '\n\n')
+      .replace(/\n{3,}/g, ' ')
+      .replace(/\n/g, ' ')
       .trim();
   };
 
-  // Fetch audio chunk from ElevenLabs
-  const fetchAudioChunk = async (text: string): Promise<AudioBuffer | null> => {
-    if (!audioContextRef.current) return null;
+  // Split text into sentences for more natural chunking
+  const splitIntoSentences = (text: string): string[] => {
+    const cleaned = cleanTextForSpeech(text);
+    // Split by sentence endings, keeping the punctuation
+    const sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned];
+    return sentences.map(s => s.trim()).filter(s => s.length > 0);
+  };
+
+  // Fetch audio from ElevenLabs with retry logic
+  const fetchAudio = async (text: string, retries = 2): Promise<AudioBuffer | null> => {
+    if (!audioContextRef.current || !text.trim()) return null;
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const response = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${API_CONFIG.elevenlabsVoiceId}`,
+          {
+            method: 'POST',
+            headers: {
+              'Accept': 'audio/mpeg',
+              'Content-Type': 'application/json',
+              'xi-api-key': API_CONFIG.elevenlabsApiKey,
+            },
+            body: JSON.stringify({
+              text: text,
+              model_id: 'eleven_turbo_v2_5',
+              voice_settings: {
+                stability: 0.5,
+                similarity_boost: 0.75,
+                style: 0.0,
+                use_speaker_boost: true
+              },
+              optimize_streaming_latency: 4,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          if (attempt < retries) {
+            console.warn(`Audio fetch attempt ${attempt + 1} failed, retrying...`);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            continue;
+          }
+          throw new Error(`ElevenLabs API error: ${response.status}`);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+        
+        console.log(`✓ Audio fetched successfully (${text.substring(0, 50)}...)`);
+        return audioBuffer;
+      } catch (error) {
+        if (attempt === retries) {
+          console.error('Error fetching audio after retries:', error);
+          return null;
+        }
+      }
+    }
+    return null;
+  };
+
+  // Pre-fetch next audio chunk while current is playing
+  const preFetchNextChunk = async () => {
+    if (isFetchingAudioRef.current || !isPlayingRef.current) return;
+    
+    // Find next chunk without audio buffer
+    const nextChunk = audioQueueRef.current.find(chunk => !chunk.buffer);
+    if (!nextChunk) return;
+
+    isFetchingAudioRef.current = true;
+    console.log('🔄 Pre-fetching next audio chunk...');
+    
+    const buffer = await fetchAudio(nextChunk.text);
+    if (buffer && isPlayingRef.current) {
+      nextChunk.buffer = buffer;
+      console.log('✓ Next chunk pre-fetched and ready');
+    }
+    
+    isFetchingAudioRef.current = false;
+  };
+
+  // FIXED: Play audio chunk with version guard to prevent stale async calls
+  const playAudioChunk = async (chunk: { text: string; buffer?: AudioBuffer }, resumeOffset: number = 0) => {
+    if (!audioContextRef.current || !isPlayingRef.current) return;
+
+    // Capture the current playback version. If it changes (due to pause/stop/restart)
+    // during any await, this call is stale and must abort to prevent double-playback.
+    const myVersion = playbackVersionRef.current;
 
     try {
-      const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${API_CONFIG.elevenlabsVoiceId}/stream`,
-        {
-          method: 'POST',
-          headers: {
-            'Accept': 'audio/mpeg',
-            'Content-Type': 'application/json',
-            'xi-api-key': API_CONFIG.elevenlabsApiKey,
-          },
-          body: JSON.stringify({
-            text: text,
-            model_id: 'eleven_turbo_v2_5', // Faster model for lower latency
-            voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.75,
-              style: 0.0,
-              use_speaker_boost: true
-            },
-            optimize_streaming_latency: 4, 
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`ElevenLabs API error: ${response.status}`);
+      // Ensure audio context is running
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
       }
 
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+      // Version check after await — abort if a pause/stop/restart happened
+      if (playbackVersionRef.current !== myVersion) {
+        console.log('🛑 Stale playback call (version changed during context resume), aborting');
+        return;
+      }
+
+      let audioBuffer = chunk.buffer;
       
-      return audioBuffer;
+      // Fetch buffer if not already available
+      if (!audioBuffer) {
+        console.log('⏳ Fetching audio on-demand...');
+        audioBuffer = await fetchAudio(chunk.text);
+        if (!audioBuffer) {
+          console.error('Failed to fetch audio buffer');
+          processNextAudioChunk();
+          return;
+        }
+        chunk.buffer = audioBuffer; // Cache it
+      }
+
+      // Version check after await — abort if a pause/stop/restart happened
+      if (playbackVersionRef.current !== myVersion) {
+        console.log('🛑 Stale playback call (version changed during audio fetch), aborting');
+        return;
+      }
+
+      const source = audioContextRef.current.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContextRef.current.destination);
+      
+      // Always start immediately at current time — no pre-scheduling.
+      // This ensures only ONE source is ever active. The next chunk is started
+      // by the onended callback, not by scheduling it in the future.
+      const startTime = audioContextRef.current.currentTime;
+      
+      // Store when this chunk starts for accurate pause tracking
+      // Subtract resumeOffset so that (currentTime - chunkStartTimeRef) gives the correct
+      // absolute position within the audio buffer when pausing after a resume
+      chunkStartTimeRef.current = startTime - resumeOffset;
+      
+      const remainingDuration = audioBuffer.duration - resumeOffset;
+      
+      console.log(`▶️ Playing chunk ${currentChunkIndexRef.current} (duration: ${audioBuffer.duration.toFixed(2)}s, offset: ${resumeOffset.toFixed(2)}s, remaining: ${remainingDuration.toFixed(2)}s)`);
+      
+      // Start playback immediately from the offset
+      source.start(0, resumeOffset);
+      
+      currentSourceRef.current = source;
+      
+      // Set up callback for when this chunk ends
+      source.onended = () => {
+        // If .stop() was called manually (pause/stop), don't advance state
+        if (manualStopRef.current) {
+          manualStopRef.current = false;
+          currentSourceRef.current = null;
+          return;
+        }
+        console.log('✓ Chunk ended naturally, moving to next');
+        currentSourceRef.current = null;
+        pausedAtTimeRef.current = 0; // Reset offset for next chunk
+        currentChunkIndexRef.current++; // Move to next chunk
+        processNextAudioChunk();
+      };
+
+      // Pre-fetch next chunk while current is playing
+      preFetchNextChunk();
+
     } catch (error) {
-      console.error('Error fetching audio chunk:', error);
-      return null;
+      console.error('Error playing audio chunk:', error);
+      processNextAudioChunk();
     }
   };
 
-  // Play audio from queue with resume capability
-  const playFromQueue = (startFromChunk: number = 0, offsetTime: number = 0) => {
-    if (!audioContextRef.current || audioQueueRef.current.length === 0) return;
+  // Process next audio chunk from queue
+  // IMPORTANT: Only processes if no source is currently playing.
+  // This prevents multiple overlapping AudioBufferSourceNodes.
+  const processNextAudioChunk = async () => {
+    if (!isPlayingRef.current || isProcessingAudioRef.current || currentSourceRef.current) {
+      console.log('⏸️ Not processing: playing=' + isPlayingRef.current + ', processing=' + isProcessingAudioRef.current + ', sourceActive=' + !!currentSourceRef.current);
+      return;
+    }
 
-    if (audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume();
+    if (audioQueueRef.current.length > 0) {
+      isProcessingAudioRef.current = true;
+      const chunk = audioQueueRef.current.shift();
+      
+      if (chunk && chunk.text.trim()) {
+        console.log(`📤 Processing chunk from queue (${audioQueueRef.current.length} remaining)`);
+        
+        // Store this chunk in processed list
+        allProcessedChunksRef.current.push(chunk);
+        currentChunkIndexRef.current = allProcessedChunksRef.current.length - 1;
+        
+        // IMPORTANT: Always use pausedAtTimeRef for resume offset, then reset it
+        const offset = pausedAtTimeRef.current;
+        pausedAtTimeRef.current = 0; // Reset after using
+        
+        await playAudioChunk(chunk, offset);
+      }
+      
+      isProcessingAudioRef.current = false;
+    } else {
+      // Queue is empty, check for pending text
+      if (currentTextChunkRef.current.trim()) {
+        console.log('📝 Processing pending text chunk');
+        const sentences = splitIntoSentences(currentTextChunkRef.current);
+        currentTextChunkRef.current = '';
+        
+        for (const sentence of sentences) {
+          if (sentence.trim()) {
+            audioQueueRef.current.push({ text: sentence });
+          }
+        }
+        
+        if (audioQueueRef.current.length > 0) {
+          processNextAudioChunk();
+        }
+      } else if (!isGenerating) {
+        // No more audio to play and generation is complete
+        console.log('🏁 Audio playback complete');
+        setIsPlayingAudio(false);
+        isPlayingRef.current = false;
+        hasAudioStartedRef.current = false;
+        nextPlayTimeRef.current = 0;
+      }
+    }
+  };
+
+  // Start audio playback automatically
+  const startAudioPlayback = async () => {
+    if (!autoPlayAudio || hasAudioStartedRef.current || !audioContextRef.current) {
+      console.log('⏭️ Skipping audio start: autoPlay=' + autoPlayAudio + ', started=' + hasAudioStartedRef.current);
+      return;
+    }
+
+    console.log('🎬 Starting audio playback...');
+    
+    // Reset audio state
+    if (currentSourceRef.current) {
+      currentSourceRef.current.stop();
+      currentSourceRef.current = null;
     }
 
     isPlayingRef.current = true;
     setIsPlayingAudio(true);
     setIsPausedAudio(false);
+    hasAudioStartedRef.current = true;
+    nextPlayTimeRef.current = audioContextRef.current.currentTime;
+    pausedAtTimeRef.current = 0;
+    currentChunkIndexRef.current = -1;
 
-    const playChunk = (chunkIndex: number, offset: number = 0) => {
-      if (chunkIndex >= audioQueueRef.current.length || !isPlayingRef.current) {
-        // Playback completed
-        isPlayingRef.current = false;
-        setIsPlayingAudio(false);
-        currentChunkIndexRef.current = 0;
-        pausedAtTimeRef.current = 0;
-        return;
-      }
-
-      const audioBuffer = audioQueueRef.current[chunkIndex];
-      const source = audioContextRef.current!.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioContextRef.current!.destination);
-
-      currentSourceRef.current = source;
-      currentChunkIndexRef.current = chunkIndex;
-      audioStartTimeRef.current = audioContextRef.current!.currentTime - offset;
-
-      source.onended = () => {
-        if (isPlayingRef.current) {
-          playChunk(chunkIndex + 1);
+    // Process accumulated text into sentences
+    if (currentTextChunkRef.current.trim()) {
+      const sentences = splitIntoSentences(currentTextChunkRef.current);
+      currentTextChunkRef.current = '';
+      
+      console.log(`📚 Queuing ${sentences.length} sentences for playback`);
+      
+      for (const sentence of sentences) {
+        if (sentence.trim()) {
+          audioQueueRef.current.push({ text: sentence });
         }
-      };
+      }
+    }
 
-      // Start playback with offset for resume
-      source.start(0, offset);
-    };
-
-    playChunk(startFromChunk, offsetTime);
+    // Start processing queue
+    if (audioQueueRef.current.length > 0) {
+      console.log(`🚀 Starting playback with ${audioQueueRef.current.length} chunks in queue`);
+      processNextAudioChunk();
+    }
   };
 
-  // Stream and play audio in chunks for instant playback
-  const streamAndPlayAudio = async (text: string) => {
-    if (!audioContextRef.current) return;
+  // Process incoming text for audio - enhanced for continuous streaming
+  const processTextForAudio = (text: string) => {
+    if (!autoPlayAudio || !text.trim()) return;
 
     const cleanText = cleanTextForSpeech(text);
     if (!cleanText) return;
 
-    // Reset audio state
-    audioQueueRef.current = [];
-    currentChunkIndexRef.current = 0;
-    pausedAtTimeRef.current = 0;
-    currentTextRef.current = cleanText;
+    // Count words
+    const words = cleanText.split(/\s+/).filter(word => word.length > 0);
+    wordCountRef.current += words.length;
 
-    // Split into smaller chunks for faster initial playback
-    const chunks = splitTextIntoChunks(cleanText, 300);
-    
-    console.log(`Streaming ${chunks.length} chunks for instant playback...`);
+    // Accumulate text
+    currentTextChunkRef.current += ' ' + cleanText;
 
-    setIsPlayingAudio(true);
-    isPlayingRef.current = true;
-
-    // Fetch and play chunks progressively
-    for (let i = 0; i < chunks.length; i++) {
-      if (!isPlayingRef.current) break;
-
-      const audioBuffer = await fetchAudioChunk(chunks[i]);
-      
-      if (audioBuffer) {
-        audioQueueRef.current.push(audioBuffer);
-
-        // Start playing as soon as first chunk is ready
-        if (i === 0) {
-          playFromQueue(0, 0);
+    // Start audio when we have enough words
+    if (wordCountRef.current >= MIN_WORDS_FOR_AUDIO && !hasAudioStartedRef.current) {
+      console.log(`✨ Reached ${wordCountRef.current} words, starting autoplay...`);
+      startAudioPlayback();
+    }
+    // If audio already playing, check if we have complete sentences to queue
+    else if (hasAudioStartedRef.current && isPlayingRef.current) {
+      // Look for sentence endings in accumulated text
+      const sentencePattern = /[.!?]+/;
+      if (sentencePattern.test(currentTextChunkRef.current)) {
+        const sentences = splitIntoSentences(currentTextChunkRef.current);
+        
+        // Keep the last incomplete sentence in the buffer
+        const lastSentence = sentences[sentences.length - 1];
+        const endsWithPunctuation = /[.!?]$/.test(lastSentence);
+        
+        if (sentences.length > 1 || endsWithPunctuation) {
+          const sentencesToQueue = endsWithPunctuation ? sentences : sentences.slice(0, -1);
+          const remaining = endsWithPunctuation ? '' : lastSentence;
+          
+          console.log(`➕ Adding ${sentencesToQueue.length} complete sentences to queue`);
+          
+          for (const sentence of sentencesToQueue) {
+            if (sentence.trim()) {
+              audioQueueRef.current.push({ text: sentence });
+            }
+          }
+          
+          currentTextChunkRef.current = remaining;
+          
+          // Trigger processing if not already processing
+          if (!isProcessingAudioRef.current && audioQueueRef.current.length > 0) {
+            processNextAudioChunk();
+          }
         }
       }
     }
   };
 
-  // Pause audio playback
+  // FIXED: Pause audio playback - works even between chunks (no active source)
   const pauseAudioPlayback = () => {
-    if (!audioContextRef.current || !currentSourceRef.current) return;
+    if (!audioContextRef.current) return;
 
-    isPlayingRef.current = false;
+    console.log('⏸️ Pausing audio playback');
     
-    // Calculate current playback position
-    const currentTime = audioContextRef.current.currentTime;
-    const elapsedTime = currentTime - audioStartTimeRef.current;
+    // Increment version to invalidate any in-flight async playAudioChunk calls
+    playbackVersionRef.current++;
     
-    // Store the position within the current chunk
-    const currentBuffer = audioQueueRef.current[currentChunkIndexRef.current];
-    if (currentBuffer) {
-      pausedAtTimeRef.current = Math.min(elapsedTime, currentBuffer.duration);
-    }
-
-    // Stop current playback
     if (currentSourceRef.current) {
-      currentSourceRef.current.stop();
-      currentSourceRef.current = null;
+      // Mid-chunk pause: stop the source and save the exact position
+      try {
+        const currentTime = audioContextRef.current.currentTime;
+        
+        // Because chunkStartTimeRef accounts for resumeOffset, this gives the
+        // absolute position within the audio buffer
+        const elapsedInChunk = currentTime - chunkStartTimeRef.current;
+        pausedAtTimeRef.current = Math.max(0, elapsedInChunk);
+        
+        console.log(`💾 Paused at ${pausedAtTimeRef.current.toFixed(2)}s into chunk ${currentChunkIndexRef.current}`);
+        
+        // Set manual stop flag BEFORE calling .stop() so the onended handler
+        // knows not to corrupt our saved pause state
+        manualStopRef.current = true;
+        currentSourceRef.current.stop();
+        currentSourceRef.current = null;
+      } catch (e) {
+        console.warn('Error stopping audio source:', e);
+        pausedAtTimeRef.current = 0;
+      }
+    } else {
+      // Between chunks (fetching or gap) - no source to stop
+      // pausedAtTimeRef stays 0; resume will continue from the next queued chunk
+      console.log('⏸️ Paused between chunks');
+      pausedAtTimeRef.current = 0;
     }
-
+    
+    // ALWAYS update state so button transitions to "Resume Audio"
+    isPlayingRef.current = false;
+    isProcessingAudioRef.current = false;
     setIsPlayingAudio(false);
     setIsPausedAudio(true);
+    nextPlayTimeRef.current = 0;
+
+    // Suspend audio context to stop all audio processing
+    if (audioContextRef.current.state !== 'suspended') {
+      audioContextRef.current.suspend().then(() => {
+        console.log('✅ Audio context suspended');
+      }).catch(err => {
+        console.error('Error suspending audio context:', err);
+      });
+    }
   };
 
-  // Resume audio playback from where it was paused
-  const resumeAudioPlayback = () => {
-    if (!audioContextRef.current || audioQueueRef.current.length === 0) return;
+  // FIXED: Resume audio playback - handles mid-chunk, between-chunk, and full restart
+  const resumeAudioPlayback = async () => {
+    if (!audioContextRef.current) return;
 
-    const currentBuffer = audioQueueRef.current[currentChunkIndexRef.current];
+    console.log(`▶️ Resuming from chunk ${currentChunkIndexRef.current} at ${pausedAtTimeRef.current.toFixed(2)}s`);
     
-    if (pausedAtTimeRef.current >= currentBuffer.duration - 0.1) {
-      // If we're at the end of current chunk, move to next
-      playFromQueue(currentChunkIndexRef.current + 1, 0);
+    // Resume audio context first (always await to ensure it's running)
+    await audioContextRef.current.resume();
+    console.log('✅ Audio context resumed');
+    
+    const currentChunk = allProcessedChunksRef.current[currentChunkIndexRef.current];
+    
+    if (currentChunk && pausedAtTimeRef.current > 0) {
+      // CASE 1: Mid-chunk pause — resume from the saved offset within the buffer
+      console.log(`🎯 Resuming chunk "${currentChunk.text.substring(0, 30)}..." from ${pausedAtTimeRef.current.toFixed(2)}s`);
+      
+      // Re-add remaining processed chunks + existing queue
+      const remainingChunks = allProcessedChunksRef.current.slice(currentChunkIndexRef.current + 1);
+      audioQueueRef.current = [...remainingChunks, ...audioQueueRef.current];
+      
+      // Remove current chunk from processed list (processNextAudioChunk will re-add it)
+      allProcessedChunksRef.current = allProcessedChunksRef.current.slice(0, currentChunkIndexRef.current);
+      
+      // Put current chunk at the front of the queue with its cached buffer
+      audioQueueRef.current.unshift(currentChunk);
+      
+      isPlayingRef.current = true;
+      setIsPlayingAudio(true);
+      setIsPausedAudio(false);
+      nextPlayTimeRef.current = audioContextRef.current.currentTime;
+      
+      // Decrease chunk index since we removed it from processed
+      currentChunkIndexRef.current--;
+      
+      // Start processing — pausedAtTimeRef will be consumed as the resume offset
+      isProcessingAudioRef.current = false;
+      processNextAudioChunk();
+      
     } else {
-      // Resume from paused position
-      playFromQueue(currentChunkIndexRef.current, pausedAtTimeRef.current);
+      // CASE 2: Not mid-chunk. Either paused between chunks (during fetch / gap)
+      // or all audio finished. Re-queue any chunk that was being processed but
+      // never actually played, then continue from the queue.
+      
+      const replayIndex = currentChunkIndexRef.current;
+      if (replayIndex >= 0 && replayIndex < allProcessedChunksRef.current.length) {
+        // The chunk at replayIndex was shifted from queue into allProcessedChunks
+        // but may not have been played. Re-queue it (and any after it) so nothing is skipped.
+        const chunksToRequeue = allProcessedChunksRef.current.slice(replayIndex);
+        allProcessedChunksRef.current = allProcessedChunksRef.current.slice(0, replayIndex);
+        audioQueueRef.current = [...chunksToRequeue, ...audioQueueRef.current];
+        currentChunkIndexRef.current = replayIndex > 0 ? replayIndex - 1 : -1;
+        console.log(`♻️ Re-queued ${chunksToRequeue.length} unplayed chunk(s)`);
+      }
+      
+      pausedAtTimeRef.current = 0;
+      
+      if (audioQueueRef.current.length > 0) {
+        // Continue from where we left off
+        console.log(`▶️ Continuing playback with ${audioQueueRef.current.length} chunks in queue`);
+        
+        isPlayingRef.current = true;
+        setIsPlayingAudio(true);
+        setIsPausedAudio(false);
+        nextPlayTimeRef.current = audioContextRef.current.currentTime;
+        isProcessingAudioRef.current = false;
+        processNextAudioChunk();
+        
+      } else if (response) {
+        // Nothing left in queue at all — restart from the full response text
+        console.log('🔄 Queue empty, restarting from beginning');
+        stopAudioPlayback();
+        
+        await audioContextRef.current.resume();
+        
+        const sentences = splitIntoSentences(response);
+        console.log(`📚 Queuing ${sentences.length} sentences for restart`);
+        
+        for (const sentence of sentences) {
+          if (sentence.trim()) {
+            audioQueueRef.current.push({ text: sentence });
+          }
+        }
+        
+        hasAudioStartedRef.current = true;
+        isPlayingRef.current = true;
+        setIsPlayingAudio(true);
+        setIsPausedAudio(false);
+        currentChunkIndexRef.current = -1;
+        pausedAtTimeRef.current = 0;
+        nextPlayTimeRef.current = audioContextRef.current.currentTime;
+        
+        processNextAudioChunk();
+      }
     }
   };
 
   // Stop audio playback completely
+  // NOTE: Does NOT suspend the audio context — callers that need suspension
+  //       (like pauseAudioPlayback) handle it themselves. This avoids the async
+  //       suspend race condition when stopAudioPlayback is followed by immediate replay.
   const stopAudioPlayback = () => {
-    isPlayingRef.current = false;
+    console.log('⏹️ Stopping audio playback');
     
+    // Increment version to invalidate any in-flight async playAudioChunk calls
+    playbackVersionRef.current++;
+    
+    isPlayingRef.current = false;
+    hasAudioStartedRef.current = false;
+    wordCountRef.current = 0;
+    nextPlayTimeRef.current = 0;
+    pausedAtTimeRef.current = 0;
+    currentChunkIndexRef.current = -1;
+    chunkStartTimeRef.current = 0;
+    
+    // Stop and clear current audio source
     if (currentSourceRef.current) {
-      currentSourceRef.current.stop();
+      try {
+        manualStopRef.current = true; // Prevent onended from firing side effects
+        currentSourceRef.current.stop();
+      } catch (e) {
+        // Ignore error if already stopped
+      }
       currentSourceRef.current = null;
     }
 
+    // Clear all queues
     audioQueueRef.current = [];
-    currentChunkIndexRef.current = 0;
-    pausedAtTimeRef.current = 0;
+    allProcessedChunksRef.current = [];
+    currentTextChunkRef.current = '';
+    isProcessingAudioRef.current = false;
+    isFetchingAudioRef.current = false;
     
+    // Update UI state
     setIsPlayingAudio(false);
     setIsPausedAudio(false);
   };
 
-  // Toggle audio playback
-  const toggleAudioPlayback = () => {
+  // Toggle audio playback (for manual control)
+  const toggleAudioPlayback = async () => {
     if (isPlayingAudio) {
       // Pause if playing
       pauseAudioPlayback();
     } else if (isPausedAudio) {
       // Resume if paused
-      resumeAudioPlayback();
+      await resumeAudioPlayback();
     } else if (response) {
-      // Start new playback
-      streamAndPlayAudio(response);
+      // Start new playback from beginning
+      console.log('🔄 Starting fresh playback');
+      stopAudioPlayback();
+      
+      // Ensure audio context is running (await to avoid race with any pending suspend)
+      if (audioContextRef.current) {
+        await audioContextRef.current.resume();
+      }
+      
+      hasAudioStartedRef.current = true;
+      isPlayingRef.current = true;
+      setIsPlayingAudio(true);
+      setIsPausedAudio(false);
+      pausedAtTimeRef.current = 0;
+      currentChunkIndexRef.current = -1;
+      
+      const sentences = splitIntoSentences(response);
+      console.log(`📚 Queuing ${sentences.length} sentences for playback`);
+      
+      for (const sentence of sentences) {
+        if (sentence.trim()) {
+          audioQueueRef.current.push({ text: sentence });
+        }
+      }
+      
+      if (audioContextRef.current) {
+        nextPlayTimeRef.current = audioContextRef.current.currentTime;
+      }
+      
+      processNextAudioChunk();
     }
   };
 
@@ -495,7 +1020,7 @@ const AgriAdvisoryInterface = () => {
   };
 
   const handleInputChange = (field: string, value: string) => {
-    setSettings((prev) => ({ ...prev, [field]: value }));
+    setUiSettings((prev) => ({ ...prev, [field]: value }));
   };
 
   const SYSTEM_PROMPT = `You are a helpful District Agricultural Officer providing crop advisory to farmers based on location and various climatic conditions given as input.
@@ -519,32 +1044,33 @@ Output Restrictions:
 - Do not repeat <unused0> or <unused1>.
 - Do not include meta commentary or explanations about the protocol.
 - The final advisory must be written strictly in the language requested by the user.
-- The final advisory should be concise, actionable, and single paragraph focused on practical steps for the farmer.
+- The final advisory should be striclty very concise, actionable, and single paragraph focused on practical steps for the farmer.
 `;
 
-  // Build the prompt from settings
-const buildPrompt = () => {
-  const parts: string[] = [];
+  // Build the prompt from backend settings (Hindi values)
+  const buildPrompt = () => {
+    const backendSettings = getBackendSettings();
+    const parts: string[] = [];
 
-  if (settings.month) parts.push(`Month: ${settings.month}`);
-  if (settings.growthStage) parts.push(`Growth Stage: ${settings.growthStage}`);
-  if (settings.weather) parts.push(`Weather: ${settings.weather}`);
-  if (settings.soilType) parts.push(`Soil Type: ${settings.soilType}`);
-  if (settings.farmingPractice) parts.push(`Farming Practice: ${settings.farmingPractice}`);
-  if (settings.region) parts.push(`Region: ${settings.region}`);
-  if (settings.language) parts.push(`Language: ${settings.language}`);
-  if (settings.crop) parts.push(`Crop: ${settings.crop}`);
-  if (settings.stress) parts.push(`Stress: ${settings.stress}`);
+    if (backendSettings.month) parts.push(`Month: ${backendSettings.month}`);
+    if (backendSettings.growthStage) parts.push(`Growth Stage: ${backendSettings.growthStage}`);
+    if (backendSettings.weather) parts.push(`Weather: ${backendSettings.weather}`);
+    if (backendSettings.soilType) parts.push(`Soil Type: ${backendSettings.soilType}`);
+    if (backendSettings.farmingPractice) parts.push(`Farming Practice: ${backendSettings.farmingPractice}`);
+    if (backendSettings.region) parts.push(`Region: ${backendSettings.region}`);
+    if (backendSettings.language) parts.push(`Language: ${backendSettings.language}`);
+    if (backendSettings.crop) parts.push(`Crop: ${backendSettings.crop}`);
+    if (backendSettings.stress) parts.push(`Stress: ${backendSettings.stress}`);
 
-  const userMessage = {
-    role: "user",
-    content: SYSTEM_PROMPT + "\n\n" + parts.join("\n"),
+    const userMessage = {
+      role: "user",
+      content: SYSTEM_PROMPT + "\n\n" + parts.join("\n"),
+    };
+
+    console.log("Final payload messages (Hindi values):", [userMessage]);
+
+    return [userMessage];
   };
-
-  console.log("Final payload messages:", [userMessage]);
-
-  return [userMessage];
-};
 
   // Parse streaming response with thinking token handling
   const processStreamChunk = (
@@ -674,149 +1200,176 @@ const buildPrompt = () => {
     return response;
   };
 
-const generateAdvisory = async () => {
-  if (!settings.crop || !settings.region) {
-    setError('Please enter at least Crop and Region to generate advisory');
-    return;
-  }
-
-  // Stop any playing audio
-  stopAudioPlayback();
-
-  setIsGenerating(true);
-  setError('');
-  setResponse('');
-  setDisplayedResponse('');
-  setThinkingContent('');
-  setDisplayedThinking('');
-  setIsThinking(true);
-
-  const prompt = buildPrompt();
-  console.log("prompt", prompt);
-  
-  if (abortControllerRef.current) {
-    abortControllerRef.current.abort();
-  }
-  abortControllerRef.current = new AbortController();
-
-  let state = {
-    displayText: '',
-    thinking: '',
-    inThinkingMode: true,
-    thinkingBuffer: '',
-    fullResponse: '',
-  };
-
-  try {
-    const res = await generateWithSaarthi(prompt, abortControllerRef.current.signal);
-
-    const reader = res.body?.getReader();
-    if (!reader) {
-      throw new Error('No response body');
+  const generateAdvisory = async () => {
+    if (!uiSettings.crop || !uiSettings.region) {
+      setError('Please enter at least Crop and Region to generate advisory');
+      return;
     }
 
-    const decoder = new TextDecoder();
-    let fullResponseText = '';
-    let allChunks = '';
+    // Reset audio state for new generation
+    stopAudioPlayback();
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
+    setIsGenerating(true);
+    setError('');
+    setResponse('');
+    setDisplayedResponse('');
+    setThinkingContent('');
+    setDisplayedThinking('');
+    setIsThinking(true);
+    setReasoningExpanded(false);
 
-      const chunk = decoder.decode(value);
-      allChunks += chunk;
-      
-      const lines = chunk.split('\n').filter((line) => line.trim() !== '');
+    const prompt = buildPrompt();
+    console.log("prompt", prompt);
+    
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          if (data === '[DONE]') continue;
+    let state = {
+      displayText: '',
+      thinking: '',
+      inThinkingMode: true,
+      thinkingBuffer: '',
+      fullResponse: '',
+    };
 
-          try {
-            const sanitizedData = data
-              .replace(/'/g, '"')
-              .replace(/None/g, 'null')
-              .replace(/True/g, 'true')
-              .replace(/False/g, 'false');
+    try {
+      const res = await generateWithSaarthi(prompt, abortControllerRef.current.signal);
 
-            const parsed = JSON.parse(sanitizedData);
-            let content = '';
+      const reader = res.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
 
-            content = parsed.choices?.[0]?.delta?.content || '';
-            
-            if (!content && parsed.choices?.[0]?.message?.content) {
-              content = parsed.choices[0].message.content;
-            }
+      const decoder = new TextDecoder();
+      let fullResponseText = '';
+      let allChunks = '';
 
-            if (content) {
-              fullResponseText += content;
-              console.log("Processing content:", content);
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        allChunks += chunk;
+        
+        const lines = chunk.split('\n').filter((line) => line.trim() !== '');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+
+            try {
+              const sanitizedData = data
+                .replace(/'/g, '"')
+                .replace(/None/g, 'null')
+                .replace(/True/g, 'true')
+                .replace(/False/g, 'false');
+
+              const parsed = JSON.parse(sanitizedData);
+              let content = '';
+
+              content = parsed.choices?.[0]?.delta?.content || '';
               
-              state = processStreamChunk(
-                content, 
-                state, 
-                settings.thinkingStartToken, 
-                settings.thinkingEndToken
-              );
+              if (!content && parsed.choices?.[0]?.message?.content) {
+                content = parsed.choices[0].message.content;
+              }
+
+              if (content) {
+                fullResponseText += content;
+                
+                state = processStreamChunk(
+                  content, 
+                  state, 
+                  uiSettings.thinkingStartToken, 
+                  uiSettings.thinkingEndToken
+                );
+                
+                const cleanedResponse = cleanResponseContent(state.displayText);
+                setResponse(cleanedResponse);
+                
+                setThinkingContent(cleanThinkingContent(state.thinking, uiSettings.thinkingStartToken, uiSettings.thinkingEndToken));
+                setIsThinking(state.inThinkingMode);
+                
+                // Process text for continuous audio streaming when out of thinking mode
+                if (!state.inThinkingMode && cleanedResponse && cleanedResponse.trim()) {
+                  processTextForAudio(content);
+                }
+              }
+            } 
+            catch (jsonError) {
+              console.error("JSON parse error even after sanitization:", jsonError);
               
-              const cleanedResponse = cleanResponseContent(state.displayText);
-              setResponse(cleanedResponse);
-              
-              setThinkingContent(cleanThinkingContent(state.thinking, settings.thinkingStartToken, settings.thinkingEndToken));
-              setIsThinking(state.inThinkingMode);
-            }
-          } 
-          catch (jsonError) {
-            console.error("JSON parse error even after sanitization:", jsonError);
-            console.log("Original data:", data);
-            
-            const contentMatch = data.match(/'content':\s*'([^']*)'/);
-            if (contentMatch && contentMatch[1]) {
-              const content = contentMatch[1];
-              console.log("Manually extracted content:", content);
-              fullResponseText += content;
-              
-              state = processStreamChunk(
-                content, 
-                state, 
-                settings.thinkingStartToken, 
-                settings.thinkingEndToken
-              );
-              
-              const cleanedResponse = cleanResponseContent(state.displayText);
-              setResponse(cleanedResponse);
-              
-              setThinkingContent(cleanThinkingContent(state.thinking, settings.thinkingStartToken, settings.thinkingEndToken));
-              setIsThinking(state.inThinkingMode);
+              const contentMatch = data.match(/'content':\s*'([^']*)'/);
+              if (contentMatch && contentMatch[1]) {
+                const content = contentMatch[1];
+                fullResponseText += content;
+                
+                state = processStreamChunk(
+                  content, 
+                  state, 
+                  uiSettings.thinkingStartToken, 
+                  uiSettings.thinkingEndToken
+                );
+                
+                const cleanedResponse = cleanResponseContent(state.displayText);
+                setResponse(cleanedResponse);
+                
+                setThinkingContent(cleanThinkingContent(state.thinking, uiSettings.thinkingStartToken, uiSettings.thinkingEndToken));
+                setIsThinking(state.inThinkingMode);
+                
+                if (!state.inThinkingMode && cleanedResponse && cleanedResponse.trim()) {
+                  processTextForAudio(content);
+                }
+              }
             }
           }
         }
       }
-    }
 
-    console.log("=== DEBUG: ALL RAW CHUNKS ===");
-    console.log(allChunks);
-    console.log("=== DEBUG: FULL RESPONSE TEXT ===");
-    console.log(fullResponseText);
-    console.log("=== DEBUG: FINAL STATE ===");
-    console.log("State fullResponse:", state.fullResponse);
-    console.log("State thinking:", state.thinking);
-    console.log("State displayText:", state.displayText);
-    console.log("Is thinking mode:", state.inThinkingMode);
+      console.log("=== STREAMING COMPLETE ===");
+      console.log("Total response length:", fullResponseText.length);
+      console.log("Audio queue length:", audioQueueRef.current.length);
+      console.log("Pending text:", currentTextChunkRef.current);
 
-  } catch (err: unknown) {
-    const error = err as Error;
-    if (error.name === 'AbortError') {
-      setResponse((prev) => prev + '\n\n[Generation stopped]');
-    } else {
-      setError(`Error: ${error.message}`);
+      // Process any remaining text after streaming completes
+      if (currentTextChunkRef.current.trim()) {
+        console.log('📝 Processing final remaining text');
+        const sentences = splitIntoSentences(currentTextChunkRef.current);
+        currentTextChunkRef.current = '';
+        
+        for (const sentence of sentences) {
+          if (sentence.trim()) {
+            audioQueueRef.current.push({ text: sentence });
+          }
+        }
+        
+        // Start audio if not started yet
+        if (!hasAudioStartedRef.current && audioQueueRef.current.length > 0) {
+          console.log('🎬 Starting audio with final chunks');
+          hasAudioStartedRef.current = true;
+          isPlayingRef.current = true;
+          setIsPlayingAudio(true);
+          if (audioContextRef.current) {
+            nextPlayTimeRef.current = audioContextRef.current.currentTime;
+          }
+          processNextAudioChunk();
+        }
+      }
+
+    } catch (err: unknown) {
+      const error = err as Error;
+      if (error.name === 'AbortError') {
+        setResponse((prev) => prev + '\n\n[Generation stopped]');
+      } else {
+        setError(`Error: ${error.message}`);
+      }
+    } finally {
+      setIsGenerating(false);
+      setIsThinking(false);
     }
-  } finally {
-    setIsGenerating(false);
-    setIsThinking(false);
-  }
-};
+  };
 
   const stopGeneration = () => {
     if (abortControllerRef.current) {
@@ -834,6 +1387,7 @@ const generateAdvisory = async () => {
     setThinkingContent('');
     setDisplayedThinking('');
     setError('');
+    setReasoningExpanded(false);
   };
 
   // Smooth streaming animation
@@ -873,35 +1427,32 @@ const generateAdvisory = async () => {
     };
   }, [response, thinkingContent, displayedResponse, displayedThinking]);
 
-  // Auto-scroll thinking content
+  // Auto-scroll thinking content when expanded
   useEffect(() => {
-    if (thinkingRef.current && displayedThinking) {
-      const { scrollTop, scrollHeight, clientHeight } = thinkingRef.current;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
-      
-      if (isNearBottom) {
-        thinkingRef.current.scrollTop = scrollHeight;
-      }
+    if (thinkingRef.current && displayedThinking && reasoningExpanded) {
+      thinkingRef.current.scrollTop = thinkingRef.current.scrollHeight;
     }
-  }, [displayedThinking]);
+  }, [displayedThinking, reasoningExpanded]);
 
-  // Auto-scroll response
+  // Auto-scroll response - FIXED version
   useEffect(() => {
-    if (responseRef.current && displayedResponse) {
-      const { scrollTop, scrollHeight, clientHeight } = responseRef.current;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    if (responseContentRef.current && displayedResponse) {
+      const container = responseContainerRef.current;
+      const content = responseContentRef.current;
       
+      if (!container || !content) return;
+      
+      // Calculate if user is near bottom of container
+      const containerScrollBottom = container.scrollTop + container.clientHeight;
+      const contentBottom = content.scrollHeight;
+      const isNearBottom = contentBottom - containerScrollBottom < 100;
+      
+      // Auto-scroll only if user is near bottom
       if (isNearBottom) {
-        responseRef.current.scrollTop = scrollHeight;
+        container.scrollTop = content.scrollHeight;
       }
     }
   }, [displayedResponse, isThinking]);
-
-  const languages = ['', 'English', 'Hindi'];
-  const seasons = ['', 'Kharif', 'Rabi', 'Zaid', 'Year-round'];
-  const soilTypes = ['', 'Alluvial', 'Black/Regur', 'Red'];
-  const irrigationTypes = ['', 'Drip', 'Sprinkler', 'Flood/Surface'];
-  const growthStages = ['', 'Pre-sowing', 'Germination'];
 
   const getModelName = () => {
     return API_CONFIG.saarthiModel;
@@ -917,6 +1468,10 @@ const generateAdvisory = async () => {
 
   const getProviderLabel = () => {
     return 'Saarthi Agri-Model';
+  };
+
+  const getDisplayValue = (value: string): string => {
+    return HINDI_TO_ENGLISH_MAP[value] || value;
   };
 
   return (
@@ -950,7 +1505,7 @@ const generateAdvisory = async () => {
             </div>
           </div>
 
-          {/* API Provider Selection - Hidden since only one option */}
+          {/* API Provider Selection */}
           <div className="p-3 border-b border-gray-800">
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
@@ -974,43 +1529,43 @@ const generateAdvisory = async () => {
             >
               <DropdownField
                 label="Month"
-                value={settings.month}
+                value={uiSettings.month}
                 onChange={(v) => handleInputChange('month', v)}
                 placeholder="Select month"
                 icon={Calendar}
-                options={DROPDOWN_OPTIONS.month}
+                options={DROPDOWN_OPTIONS_UI.month}
               />
               <DropdownField
                 label="Growth Stage"
-                value={settings.growthStage}
+                value={uiSettings.growthStage}
                 onChange={(v) => handleInputChange('growthStage', v)}
                 placeholder="Select growth stage"
                 icon={Sprout}
-                options={DROPDOWN_OPTIONS.growthStage}
+                options={DROPDOWN_OPTIONS_UI.growthStage}
               />
               <DropdownField
                 label="Weather"
-                value={settings.weather}
+                value={uiSettings.weather}
                 onChange={(v) => handleInputChange('weather', v)}
                 placeholder="Select weather condition"
                 icon={Cloud}
-                options={DROPDOWN_OPTIONS.weather}
+                options={DROPDOWN_OPTIONS_UI.weather}
               />
               <DropdownField
                 label="Soil Type"
-                value={settings.soilType}
+                value={uiSettings.soilType}
                 onChange={(v) => handleInputChange('soilType', v)}
                 placeholder="Select soil type"
                 icon={Layers}
-                options={DROPDOWN_OPTIONS.soilType}
+                options={DROPDOWN_OPTIONS_UI.soilType}
               />
               <DropdownField
                 label="Farming Practice"
-                value={settings.farmingPractice}
+                value={uiSettings.farmingPractice}
                 onChange={(v) => handleInputChange('farmingPractice', v)}
                 placeholder="Select farming practice"
                 icon={Settings}
-                options={DROPDOWN_OPTIONS.farmingPractice}
+                options={DROPDOWN_OPTIONS_UI.farmingPractice}
               />
             </CollapsibleSection>
             
@@ -1023,26 +1578,26 @@ const generateAdvisory = async () => {
             >
               <DropdownField
                 label="Region *"
-                value={settings.region}
+                value={uiSettings.region}
                 onChange={(v) => handleInputChange('region', v)}
                 placeholder="Select region"
                 icon={MapPin}
-                options={DROPDOWN_OPTIONS.region}
+                options={DROPDOWN_OPTIONS_UI.region}
               />
               <DropdownField
                 label="Language"
-                value={settings.language}
+                value={uiSettings.language}
                 onChange={(v) => handleInputChange('language', v)}
                 placeholder="Select language"
-                options={DROPDOWN_OPTIONS.language}
+                options={DROPDOWN_OPTIONS_UI.language}
               />
               <DropdownField
                 label="Crop *"
-                value={settings.crop}
+                value={uiSettings.crop}
                 onChange={(v) => handleInputChange('crop', v)}
                 placeholder="Select crop"
                 icon={Leaf}
-                options={DROPDOWN_OPTIONS.crop}
+                options={DROPDOWN_OPTIONS_UI.crop}
               />
             </CollapsibleSection>
 
@@ -1055,11 +1610,11 @@ const generateAdvisory = async () => {
             >
               <DropdownField
                 label="Stress"
-                value={settings.stress}
+                value={uiSettings.stress}
                 onChange={(v) => handleInputChange('stress', v)}
                 placeholder="Select stress factor"
                 icon={AlertCircle}
-                options={DROPDOWN_OPTIONS.stress}
+                options={DROPDOWN_OPTIONS_UI.stress}
               />
             </CollapsibleSection>
 
@@ -1075,14 +1630,14 @@ const generateAdvisory = async () => {
               </div>
               <InputField
                 label="Thinking Start Token"
-                value={settings.thinkingStartToken}
+                value={uiSettings.thinkingStartToken}
                 onChange={(v) => handleInputChange('thinkingStartToken', v)}
                 placeholder="e.g., <think>"
                 icon={Brain}
               />
               <InputField
                 label="Thinking End Token"
-                value={settings.thinkingEndToken}
+                value={uiSettings.thinkingEndToken}
                 onChange={(v) => handleInputChange('thinkingEndToken', v)}
                 placeholder="e.g., </think>"
                 icon={Brain}
@@ -1115,7 +1670,7 @@ const generateAdvisory = async () => {
             ) : (
               <button
                 onClick={() => generateAdvisory()}
-                disabled={!settings.crop || !settings.region}
+                disabled={!uiSettings.crop || !uiSettings.region}
                 className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:shadow-none"
               >
                 <Sparkles size={20} />
@@ -1141,183 +1696,217 @@ const generateAdvisory = async () => {
             </div>
           </div>
 
-          {/* Response Area */}
+          {/* Response Area - FIXED SCROLLING */}
           <div 
-            ref={responseRef}
+            ref={responseContainerRef}
             className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800/30"
           >
-            {error && (
-              <div className="max-w-3xl mx-auto mb-4">
-                <div className={`bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3`}>
-                  <AlertCircle className={`text-red-400 flex-shrink-0 mt-0.5`} size={20} />
-                  <div className={`text-sm text-red-300`}>{error}</div>
-                </div>
-              </div>
-            )}
-
-            {!response && !isGenerating && !error && (
-              <div className="h-full flex flex-col items-center justify-center text-center">
-                <h2 className="text-4xl font-bold text-gray-200 mb-1">Saarthi 🌿</h2>
-                <p className="text-gray-500 max-w-md mb-8">
-                  Enter your farming parameters in the sidebar and click "Generate Advisory" 
-                  to receive AI-powered agricultural recommendations.
-                </p>
-                <div className="flex flex-wrap justify-center gap-3 mb-6">
-                  {['Crop Management', 'Pest Control', 'Fertilizer Advice', 'Irrigation Schedule'].map((tag) => (
-                    <span key={tag} className="px-3 py-1.5 bg-gray-800/50 border border-gray-700 rounded-full text-xs text-gray-400">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                {/* <div className="text-xs text-gray-600">
-                  <span className="flex items-center gap-1">
-                    Tokens: <code className="px-1.5 py-0.5 bg-gray-800/70 rounded text-gray-400">{settings.thinkingStartToken}</code> 
-                    to <code className="px-1.5 py-0.5 bg-gray-800/70 rounded text-gray-400">{settings.thinkingEndToken}</code>
-                  </span>
-                </div> */}
-              </div>
-            )}
-
-            {(response || isGenerating) && (
-              <div className="max-w-6xl mx-auto">
-                {/* User Query Summary */}
-                <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium mb-2">
-                    <Send size={14} />
-                    Query Parameters
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {settings.month && (
-                      <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
-                        📅 {settings.month}
-                      </span>
-                    )}
-                    {settings.growthStage && (
-                      <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
-                        🌱 {settings.growthStage}
-                      </span>
-                    )}
-                    {settings.weather && (
-                      <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
-                        🌤️ {settings.weather}
-                      </span>
-                    )}
-                    {settings.soilType && (
-                      <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
-                        🏔️ {settings.soilType}
-                      </span>
-                    )}
-                    {settings.farmingPractice && (
-                      <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
-                        🚜 {settings.farmingPractice}
-                      </span>
-                    )}
-                    {settings.region && (
-                      <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
-                        📍 {settings.region}
-                      </span>
-                    )}
-                    {settings.language && (
-                      <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
-                        🌐 {settings.language}
-                      </span>
-                    )}
-                    {settings.crop && (
-                      <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
-                        🌾 {settings.crop}
-                      </span>
-                    )}
-                    {settings.stress && (
-                      <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
-                        ⚠️ {settings.stress}
-                      </span>
-                    )}
+            <div className="max-w-6xl mx-auto">
+              {error && (
+                <div className="mb-4">
+                  <div className={`bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3`}>
+                    <AlertCircle className={`text-red-400 flex-shrink-0 mt-0.5`} size={20} />
+                    <div className={`text-sm text-red-300`}>{error}</div>
                   </div>
                 </div>
+              )}
 
-                {/* Thinking Content */}
-                {(thinkingContent || displayedThinking) && (
-                  <div className="mb-4">
-                    <div className={`border rounded-xl overflow-hidden ${isThinking ? 'bg-amber-500/10 border-amber-500/30' : 'bg-gray-800/30 border-gray-700/50'}`}>
-                      <div className={`flex items-center gap-2 px-3 py-2 border-b ${isThinking ? 'border-amber-500/20 bg-amber-500/5' : 'border-gray-700/30 bg-gray-800/20'}`}>
-                        <Brain size={16} className={isThinking ? 'text-amber-400 animate-pulse' : 'text-gray-400'} />
-                        <span className={`font-medium text-sm ${isThinking ? 'text-amber-400' : 'text-gray-400'}`}>
-                          {isThinking ? 'Model is thinking...' : 'Reasoning Process'}
+              {!response && !isGenerating && !error && (
+                <div className="h-full flex flex-col items-center justify-center text-center min-h-[calc(100vh-14rem)]">
+                  <h2 className="text-4xl font-bold text-gray-200 mb-1">Saarthi 🌿</h2>
+                  <p className="text-gray-500 max-w-md mb-8">
+                    Enter your farming parameters in the sidebar and click "Generate Advisory" 
+                    to receive AI-powered agricultural recommendations.
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-3 mb-6">
+                    {['Crop Management', 'Pest Control', 'Fertilizer Advice', 'Irrigation Schedule'].map((tag) => (
+                      <span key={tag} className="px-3 py-1.5 bg-gray-800/50 border border-gray-700 rounded-full text-xs text-gray-400">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(response || isGenerating) && (
+                <>
+                  {/* User Query Summary */}
+                  <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                    <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium mb-2">
+                      <Send size={14} />
+                      Query Parameters
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {uiSettings.month && (
+                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                          📅 {uiSettings.month}
                         </span>
-                        {isThinking && (
-                          <div className="flex gap-1 ml-auto">
-                            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                          </div>
-                        )}
-                      </div>
-                      <div 
-                        ref={thinkingRef}
-                        className="max-h-32 overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-gray-600/50 scrollbar-track-gray-800/20"
-                      >
-                        <pre className={`text-xs whitespace-pre-wrap font-mono leading-relaxed ${isThinking ? 'text-amber-200/80' : 'text-gray-400'}`}>
-                          {displayedThinking}
-                          {isThinking && displayedThinking.length < thinkingContent.length && (
-                            <span className="inline-block w-1.5 h-3 bg-amber-400 animate-pulse ml-0.5 rounded-sm"></span>
-                          )}
-                        </pre>
-                      </div>
+                      )}
+                      {uiSettings.growthStage && (
+                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                          🌱 {uiSettings.growthStage}
+                        </span>
+                      )}
+                      {uiSettings.weather && (
+                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                          🌤️ {uiSettings.weather}
+                        </span>
+                      )}
+                      {uiSettings.soilType && (
+                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                          🏔️ {uiSettings.soilType}
+                        </span>
+                      )}
+                      {uiSettings.farmingPractice && (
+                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                          🚜 {uiSettings.farmingPractice}
+                        </span>
+                      )}
+                      {uiSettings.region && (
+                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                          📍 {uiSettings.region}
+                        </span>
+                      )}
+                      {uiSettings.language && (
+                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                          🌐 {uiSettings.language}
+                        </span>
+                      )}
+                      {uiSettings.crop && (
+                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                          🌾 {uiSettings.crop}
+                        </span>
+                      )}
+                      {uiSettings.stress && (
+                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                          ⚠️ {uiSettings.stress}
+                        </span>
+                      )}
                     </div>
                   </div>
-                )}
 
-                {/* Response Content */}
-                <div className="relative">
-                  {/* Audio Playback Button with ElevenLabs - Enhanced with pause/resume */}
-                  {response && (
-                    <div className="flex items-center justify-end mb-4">
-                      <button
-                        onClick={toggleAudioPlayback}
-                        disabled={!response || isGenerating}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-                          isPlayingAudio 
-                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
-                            : isPausedAudio
-                            ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                            : 'bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/20'
-                        } ${(!response || isGenerating) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      >
-                        {isPlayingAudio ? (
-                          <>
-                            <VolumeX size={16} />
-                            <span className="text-sm">Pause Audio</span>
-                          </>
-                        ) : isPausedAudio ? (
-                          <>
-                            <Volume2 size={16} />
-                            <span className="text-sm">Resume Audio</span>
-                          </>
-                        ) : (
-                          <>
-                            <Volume2 size={16} />
-                            <span className="text-sm">Play Audio</span>
-                          </>
-                        )}
-                      </button>
+                  {/* Thinking Content */}
+                  {(thinkingContent || displayedThinking) && (
+                    <div className="mb-4">
+                      <div className={`border rounded-xl overflow-hidden ${isThinking ? 'bg-amber-500/10 border-amber-500/30' : 'bg-gray-800/30 border-gray-700/50'}`}>
+                        <div className={`flex items-center gap-2 px-3 py-2 border-b ${isThinking ? 'border-amber-500/20 bg-amber-500/5' : 'border-gray-700/30 bg-gray-800/20'}`}>
+                          <Brain size={16} className={isThinking ? 'text-amber-400 animate-pulse' : 'text-gray-400'} />
+                          <span className={`font-medium text-sm ${isThinking ? 'text-amber-400' : 'text-gray-400'}`}>
+                            {isThinking ? 'Model is thinking...' : 'Reasoning Process'}
+                          </span>
+                          
+                          <button
+                            onClick={() => setReasoningExpanded(!reasoningExpanded)}
+                            className="ml-auto flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                          >
+                            {reasoningExpanded ? (
+                              <>
+                                <ChevronDown size={14} />
+                                <span>Collapse</span>
+                              </>
+                            ) : (
+                              <>
+                                <ChevronRight size={14} />
+                                <span>Expand</span>
+                              </>
+                            )}
+                          </button>
+                          
+                          {isThinking && (
+                            <div className="flex gap-1">
+                              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                            </div>
+                          )}
+                        </div>
+                        <div 
+                          ref={thinkingRef}
+                          className={`overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600/50 scrollbar-track-gray-800/20 ${
+                            reasoningExpanded ? 'max-h-96' : 'max-h-32'
+                          }`}
+                        >
+                          <pre className={`text-xs whitespace-pre-wrap font-mono leading-relaxed p-3 ${isThinking ? 'text-amber-200/80' : 'text-gray-400'}`}>
+                            {displayedThinking}
+                            {isThinking && displayedThinking.length < thinkingContent.length && (
+                              <span className="inline-block w-1.5 h-3 bg-amber-400 animate-pulse ml-0.5 rounded-sm"></span>
+                            )}
+                          </pre>
+                        </div>
+                      </div>
                     </div>
                   )}
-                  
-                  <div className="prose prose-invert prose-emerald max-w-none prose-headings:text-gray-100 prose-p:text-gray-300 prose-strong:text-emerald-400 prose-li:text-gray-300 prose-a:text-emerald-400 prose-code:text-amber-300 prose-code:bg-gray-800/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-800/70 prose-pre:border prose-pre:border-gray-700">
-                    <ReactMarkdown>{displayedResponse}</ReactMarkdown>
-                    {isGenerating && !isThinking && displayedResponse.length < response.length && (
-                      <span className="inline-block w-2 h-5 bg-emerald-500 animate-pulse ml-1 rounded-sm"></span>
+
+                  {/* Response Content */}
+                  <div className="relative">
+                    {/* Audio Playback Controls */}
+                    {response && (
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          {/* <span className={`text-xs font-medium ${isPlayingAudio ? 'text-emerald-400' : isPausedAudio ? 'text-blue-400' : 'text-gray-500'}`}>
+                            🎵 Audio: {isPlayingAudio ? 'Playing' : isPausedAudio ? 'Paused' : 'Ready'}
+                          </span> */}
+                          {isPausedAudio && pausedAtTimeRef.current > 0 && (
+                            <span className="text-xs text-blue-400/70">
+                              (Paused at {pausedAtTimeRef.current.toFixed(1)}s in chunk {currentChunkIndexRef.current})
+                            </span>
+                          )}
+                          {hasAudioStartedRef.current && !isGenerating && (
+                            <span className="text-xs text-gray-500">
+                              ✓ Auto-started after {MIN_WORDS_FOR_AUDIO} words
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={toggleAudioPlayback}
+                          disabled={!response}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                            isPlayingAudio 
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30' 
+                              : isPausedAudio
+                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30'
+                              : 'bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/20'
+                          } ${!response ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          {isPlayingAudio ? (
+                            <>
+                              <VolumeX size={16} />
+                              <span className="text-sm font-medium">Pause Audio</span>
+                            </>
+                          ) : isPausedAudio ? (
+                            <>
+                              <Volume2 size={16} />
+                              <span className="text-sm font-medium">Resume Audio</span>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 size={16} />
+                              <span className="text-sm font-medium">Play Audio</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     )}
+                    
+                    <div 
+                      ref={responseContentRef}
+                      className="prose prose-invert prose-emerald max-w-none prose-headings:text-gray-100 prose-p:text-gray-300 prose-strong:text-emerald-400 prose-li:text-gray-300 prose-a:text-emerald-400 prose-code:text-amber-300 prose-code:bg-gray-800/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-800/70 prose-pre:border prose-pre:border-gray-700"
+                    >
+                      <ReactMarkdown>{displayedResponse}</ReactMarkdown>
+                      {isGenerating && !isThinking && displayedResponse.length < response.length && (
+                        <span className="inline-block w-2 h-5 bg-emerald-500 animate-pulse ml-1 rounded-sm"></span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
 
           {/* Footer */}
           <div className="h-12 border-t border-gray-800 flex items-center justify-center bg-gray-900/30 backdrop-blur-xl">
             <p className="text-xs text-gray-600">
-              Powered by Soket AI Labs
+              Powered by Soket AI Labs : Part of IndiaAI intiative
             </p>
           </div>
         </div>
@@ -1327,5 +1916,19 @@ const generateAdvisory = async () => {
 };
 
 export default AgriAdvisoryInterface;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
