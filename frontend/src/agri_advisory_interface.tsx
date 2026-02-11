@@ -1467,7 +1467,7 @@ Output Restrictions:
   };
 
   const getProviderLabel = () => {
-    return 'Saarthi Agri-Model';
+    return 'Sarthi Agri-Model';
   };
 
   const getDisplayValue = (value: string): string => {
@@ -1513,7 +1513,7 @@ Output Restrictions:
                 API Provider
               </label>
               <div className="w-full px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-gray-200 text-sm">
-                Saarthi Agri-Model
+                Sarthi Agri-Model
               </div>
             </div>
           </div>
@@ -1713,7 +1713,7 @@ Output Restrictions:
 
               {!response && !isGenerating && !error && (
                 <div className="h-full flex flex-col items-center justify-center text-center min-h-[calc(100vh-14rem)]">
-                  <h2 className="text-4xl font-bold text-gray-200 mb-1">Saarthi 🌿</h2>
+                  <h2 className="text-4xl font-bold text-gray-200 mb-1">Sarthi 🌿</h2>
                   <p className="text-gray-500 max-w-md mb-8">
                     Enter your farming parameters in the sidebar and click "Generate Advisory" 
                     to receive AI-powered agricultural recommendations.
@@ -1853,7 +1853,7 @@ Output Restrictions:
                           )}
                           {hasAudioStartedRef.current && !isGenerating && (
                             <span className="text-xs text-gray-500">
-                              ✓ Auto-started after {MIN_WORDS_FOR_AUDIO} words
+                              Auto-started
                             </span>
                           )}
                         </div>
