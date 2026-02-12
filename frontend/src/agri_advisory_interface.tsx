@@ -11,7 +11,7 @@ import companyLogo from './Soket-Logo.svg';
 const API_CONFIG = {
   // Saarthi Agri-Model (In-house OpenWebUI)
   saarthiApiKey: import.meta.env.VITE_SAARTHI_API_KEY || 'sk-9d09b7df9cbd5daebca67cbbb45e9f0c',
-  saarthiBaseUrl: import.meta.env.VITE_SAARTHI_BASE_URL || 'http://localhost:8000/v1/chat/completions',
+  saarthiBaseUrl: import.meta.env.VITE_SAARTHI_BASE_URL || 'http://localhost:8001/v1/chat/completions',
   saarthiModel: 'soketlabs/saarthi-agri-v1',
   
   // ElevenLabs API
@@ -363,6 +363,7 @@ const AgriAdvisoryInterface = () => {
   const responseContentRef = useRef<HTMLDivElement>(null);
   const thinkingRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const streamReaderRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   
   // Enhanced audio playback system for continuous streaming with pause/resume support
@@ -1241,6 +1242,7 @@ Output Restrictions:
       if (!reader) {
         throw new Error('No response body');
       }
+      streamReaderRef.current = reader;
 
       const decoder = new TextDecoder();
       let fullResponseText = '';
@@ -1366,15 +1368,26 @@ Output Restrictions:
         setError(`Error: ${error.message}`);
       }
     } finally {
+      streamReaderRef.current = null;
       setIsGenerating(false);
       setIsThinking(false);
     }
   };
 
   const stopGeneration = () => {
+    // Cancel the stream reader first so the read loop exits immediately (backend sees connection close)
+    if (streamReaderRef.current) {
+      streamReaderRef.current.cancel().catch(() => {});
+      streamReaderRef.current = null;
+    }
+    // Abort the fetch so the request is cancelled on the client and server
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
+    // Stop any auto-playing audio
+    stopAudioPlayback();
+    // Reset UI to "not generating" immediately
     setIsGenerating(false);
     setIsThinking(false);
   };
