@@ -236,19 +236,19 @@ const DROPDOWN_OPTIONS_BACKEND = {
 };
 
 const CollapsibleSection = ({ title, icon: Icon, isOpen, onToggle, children }: { title: string; icon: any; isOpen: boolean; onToggle: () => void; children: React.ReactNode }) => (
-  <div className="border border-gray-700/50 rounded-lg overflow-hidden bg-gray-800/30 backdrop-blur-sm">
+  <div className="border border-slate-200/80 rounded-lg overflow-hidden bg-white/70">
     <button
       onClick={onToggle}
-      className="w-full flex items-center justify-between p-3 hover:bg-gray-700/30 transition-colors"
+      className="w-full flex items-center justify-between p-3 hover:bg-slate-50 transition-colors"
     >
-      <div className="flex items-center gap-2 text-gray-200">
-        <Icon size={18} className="text-emerald-400" />
+      <div className="flex items-center gap-2 text-slate-800">
+        <Icon size={18} className="text-emerald-600" />
         <span className="font-medium text-sm">{title}</span>
       </div>
       {isOpen ? (
-        <ChevronDown size={18} className="text-gray-400" />
+        <ChevronDown size={18} className="text-slate-400" />
       ) : (
-        <ChevronRight size={18} className="text-gray-400" />
+        <ChevronRight size={18} className="text-slate-400" />
       )}
     </button>
     <div
@@ -277,20 +277,20 @@ const DropdownField = ({
   options: string[];
 }) => (
   <div className="space-y-1.5">
-    <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
+    <label className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
       {Icon && <Icon size={12} />}
       {label}
     </label>
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all cursor-pointer"
+      className="w-full px-3 py-2 bg-white/80 border border-slate-200/80 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400 transition-all cursor-pointer"
     >
-      <option value="" className="bg-gray-900 text-gray-500">
+      <option value="" className="text-slate-400">
         {placeholder}
       </option>
       {options.map((option, index) => (
-        <option key={index} value={option} className="bg-gray-900">
+        <option key={index} value={option}>
           {option}
         </option>
       ))}
@@ -300,7 +300,7 @@ const DropdownField = ({
 
 const InputField = ({ label, value, onChange, placeholder, icon: Icon, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; icon?: any; type?: string }) => (
   <div className="space-y-1.5">
-    <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
+    <label className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
       {Icon && <Icon size={12} />}
       {label}
     </label>
@@ -309,24 +309,24 @@ const InputField = ({ label, value, onChange, placeholder, icon: Icon, type = 't
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-gray-200 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
+      className="w-full px-3 py-2 bg-white/80 border border-slate-200/80 rounded-lg text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400 transition-all"
     />
   </div>
 );
 
 const SelectField = ({ label, value, onChange, options, icon: Icon }: { label: string; value: string; onChange: (v: string) => void; options: any[]; icon?: any }) => (
   <div className="space-y-1.5">
-    <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
+    <label className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
       {Icon && <Icon size={12} />}
       {label}
     </label>
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all cursor-pointer"
+      className="w-full px-3 py-2 bg-white/80 border border-slate-200/80 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400 transition-all cursor-pointer"
     >
       {options.map((opt) => (
-        <option key={opt.value ?? opt} value={opt.value ?? opt} className="bg-gray-900">
+        <option key={opt.value ?? opt} value={opt.value ?? opt}>
           {opt.label ?? opt}
         </option>
       ))}
@@ -366,32 +366,36 @@ const AgriAdvisoryInterface = () => {
   const streamReaderRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   
-  // Enhanced audio playback system for continuous streaming with pause/resume support
+  // --- WebSocket-based ElevenLabs TTS streaming ---
+  const wsRef = useRef<WebSocket | null>(null);
+  const wsReadyRef = useRef(false);
+  const wsEndedRef = useRef(false);
+  const pendingTextRef = useRef('');
+
+  // Audio playback system with gapless pre-scheduling
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const nextSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const nextSourceRef = useRef<AudioBufferSourceNode | null>(null); // pre-scheduled next chunk for gapless playback
+  const nextStartTimeRef = useRef(0); // AudioContext time when pre-scheduled chunk starts
   const isPlayingRef = useRef(false);
-  const audioQueueRef = useRef<Array<{ text: string; buffer?: AudioBuffer }>>([]);
+  const audioQueueRef = useRef<AudioBuffer[]>([]);
   const isProcessingAudioRef = useRef(false);
-  const isFetchingAudioRef = useRef(false);
-  const currentTextChunkRef = useRef('');
-  const wordCountRef = useRef(0);
-  const MIN_WORDS_FOR_AUDIO = 30;
   const hasAudioStartedRef = useRef(false);
-  const scheduledSourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const nextPlayTimeRef = useRef<number>(0);
-  const manualStopRef = useRef(false); // Flag to prevent onended from corrupting state on manual .stop()
-  const playbackVersionRef = useRef(0); // Incremented on pause/stop to invalidate in-flight async playback calls
-  
-  // FIXED: Better pause/resume tracking with proper state management
+  const playbackVersionRef = useRef(0);
+  const isGeneratingRef = useRef(false);
+  const wsOpeningRef = useRef(false);
+  const requestIdRef = useRef<string | null>(null);
+
+  // Pause/resume tracking
   const pausedAtTimeRef = useRef<number>(0);
   const currentChunkIndexRef = useRef<number>(-1);
-  const allProcessedChunksRef = useRef<Array<{ text: string; buffer?: AudioBuffer }>>([]);
-  const chunkStartTimeRef = useRef<number>(0); // Track when current chunk started playing
+  const allProcessedChunksRef = useRef<AudioBuffer[]>([]);
+  const chunkStartTimeRef = useRef<number>(0);
   
   // Refs for smooth streaming animation
   const responseBufferRef = useRef('');
   const thinkingBufferRef = useRef('');
   const animationFrameRef = useRef<number | null>(null);
+  const userScrolledAwayRef = useRef(false);
 
   // Store both UI (English) and backend (Hindi) values
   const [uiSettings, setUiSettings] = useState({
@@ -450,7 +454,7 @@ const AgriAdvisoryInterface = () => {
     }
   }, []);
 
-  // Clean text for speech - enhanced for better sentence detection
+  // Clean text for speech
   const cleanTextForSpeech = (text: string): string => {
     return text
       .replace(/#+\s*/g, '')
@@ -463,167 +467,205 @@ const AgriAdvisoryInterface = () => {
       .trim();
   };
 
-  // Split text into sentences for more natural chunking
-  const splitIntoSentences = (text: string): string[] => {
-    const cleaned = cleanTextForSpeech(text);
-    // Split by sentence endings, keeping the punctuation
-    const sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned];
-    return sentences.map(s => s.trim()).filter(s => s.length > 0);
+  // --- ElevenLabs WebSocket TTS (PCM format for zero-gap playback) ---
+
+  const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
   };
 
-  // Fetch audio from ElevenLabs with retry logic
-  const fetchAudio = async (text: string, retries = 2): Promise<AudioBuffer | null> => {
-    if (!audioContextRef.current || !text.trim()) return null;
+  // Synchronously convert raw 16-bit signed LE PCM into an AudioBuffer.
+  // Unlike decodeAudioData (MP3), this has zero codec delay/padding at boundaries.
+  const pcmToAudioBuffer = (pcmData: ArrayBuffer): AudioBuffer | null => {
+    if (!audioContextRef.current) return null;
+    const int16 = new Int16Array(pcmData);
+    if (int16.length === 0) return null;
+    const float32 = new Float32Array(int16.length);
+    for (let i = 0; i < int16.length; i++) {
+      float32[i] = int16[i] / 32768;
+    }
+    const buffer = audioContextRef.current.createBuffer(1, float32.length, 24000);
+    buffer.getChannelData(0).set(float32);
+    return buffer;
+  };
 
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const response = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${API_CONFIG.elevenlabsVoiceId}`,
-          {
-            method: 'POST',
-            headers: {
-              'Accept': 'audio/mpeg',
-              'Content-Type': 'application/json',
-              'xi-api-key': API_CONFIG.elevenlabsApiKey,
-            },
-            body: JSON.stringify({
-              text: text,
-              model_id: 'eleven_turbo_v2_5',
-              voice_settings: {
-                stability: 0.5,
-                similarity_boost: 0.75,
-                style: 0.0,
-                use_speaker_boost: true
-              },
-              optimize_streaming_latency: 4,
-            }),
-          }
-        );
+  const openTTSWebSocket = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      closeTTSWebSocket();
 
-        if (!response.ok) {
-          if (attempt < retries) {
-            console.warn(`Audio fetch attempt ${attempt + 1} failed, retrying...`);
-            await new Promise(resolve => setTimeout(resolve, 500));
-            continue;
-          }
-          throw new Error(`ElevenLabs API error: ${response.status}`);
+      const voiceId = API_CONFIG.elevenlabsVoiceId;
+      // Use PCM 24 kHz — raw samples with zero codec artifacts at chunk boundaries
+      const url = `wss://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream-input?model_id=eleven_turbo_v2_5&output_format=pcm_24000&inactivity_timeout=180`;
+
+      console.log('🔌 Opening ElevenLabs WebSocket (PCM 24 kHz)...');
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
+      wsReadyRef.current = false;
+      wsEndedRef.current = false;
+
+      ws.onopen = () => {
+        console.log('✅ WebSocket connected');
+        ws.send(JSON.stringify({
+          text: ' ',
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.75,
+            style: 0.0,
+            use_speaker_boost: true,
+          },
+          generation_config: { chunk_length_schedule: [50, 120, 160, 250] },
+          'xi-api-key': API_CONFIG.elevenlabsApiKey,
+        }));
+        wsReadyRef.current = true;
+
+        if (pendingTextRef.current) {
+          sendTextToTTS(pendingTextRef.current);
+          pendingTextRef.current = '';
         }
+        resolve();
+      };
 
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
-        
-        console.log(`✓ Audio fetched successfully (${text.substring(0, 50)}...)`);
-        return audioBuffer;
-      } catch (error) {
-        if (attempt === retries) {
-          console.error('Error fetching audio after retries:', error);
-          return null;
-        }
+      // Synchronous onmessage — PCM conversion is instant, so no async/await needed.
+      // Chunks arrive in order and are queued in order (no out-of-order decoding).
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data as string);
+          if (data.audio) {
+            const pcm = base64ToArrayBuffer(data.audio);
+            const buf = pcmToAudioBuffer(pcm);
+            if (buf) onAudioBufferReceived(buf);
+          }
+          if (data.isFinal) {
+            console.log('🏁 WebSocket: all audio received');
+            wsEndedRef.current = true;
+            if (!currentSourceRef.current && !nextSourceRef.current &&
+                audioQueueRef.current.length === 0 && isPlayingRef.current) {
+              isPlayingRef.current = false;
+              hasAudioStartedRef.current = false;
+              setIsPlayingAudio(false);
+            }
+          }
+        } catch { /* ignore */ }
+      };
+
+      ws.onerror = (err) => { console.error('WebSocket error', err); reject(err); };
+      ws.onclose = () => { console.log('🔌 WebSocket closed'); wsReadyRef.current = false; };
+    });
+  };
+
+  const sendTextToTTS = (text: string) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      pendingTextRef.current += text;
+      return;
+    }
+    wsRef.current.send(JSON.stringify({ text: text + ' ', try_trigger_generation: true }));
+  };
+
+  const closeTTSWebSocket = () => {
+    if (wsRef.current) {
+      const oldWs = wsRef.current;
+      // Null ALL handlers FIRST — prevents stale events (like isFinal from the old
+      // generation) from firing after close and corrupting state for a new generation.
+      // Including onopen prevents a connecting WS from resolving an old promise.
+      oldWs.onopen = null;
+      oldWs.onmessage = null;
+      oldWs.onclose = null;
+      oldWs.onerror = null;
+
+      if (oldWs.readyState === WebSocket.OPEN) {
+        try { oldWs.send(JSON.stringify({ text: '' })); } catch { /* */ }
       }
+      oldWs.close();
+      wsRef.current = null;
+      wsReadyRef.current = false;
     }
-    return null;
+    wsOpeningRef.current = false;
+    pendingTextRef.current = '';
   };
 
-  // Pre-fetch next audio chunk while current is playing
-  const preFetchNextChunk = async () => {
-    if (isFetchingAudioRef.current || !isPlayingRef.current) return;
-    
-    // Find next chunk without audio buffer
-    const nextChunk = audioQueueRef.current.find(chunk => !chunk.buffer);
-    if (!nextChunk) return;
+  // Called synchronously when a PCM AudioBuffer is decoded from the WebSocket.
+  // Playing state is already set up by generateAdvisory (or startFreshPlayback),
+  // so chunks go straight to playback/pre-scheduling.
+  const onAudioBufferReceived = (audioBuffer: AudioBuffer) => {
+    audioQueueRef.current.push(audioBuffer);
+    console.log(`🔊 Audio chunk (${audioBuffer.duration.toFixed(2)}s), queue: ${audioQueueRef.current.length}`);
 
-    isFetchingAudioRef.current = true;
-    console.log('🔄 Pre-fetching next audio chunk...');
-    
-    const buffer = await fetchAudio(nextChunk.text);
-    if (buffer && isPlayingRef.current) {
-      nextChunk.buffer = buffer;
-      console.log('✓ Next chunk pre-fetched and ready');
+    if (!isPlayingRef.current) {
+      // Fallback auto-start (e.g. if playing state wasn't pre-set)
+      hasAudioStartedRef.current = true;
+      isPlayingRef.current = true;
+      setIsPlayingAudio(true);
+      setIsPausedAudio(false);
+      if (audioContextRef.current?.state === 'suspended') {
+        audioContextRef.current.resume().then(() => processNextAudioChunk());
+      } else {
+        processNextAudioChunk();
+      }
+    } else if (currentSourceRef.current && !nextSourceRef.current) {
+      // A chunk is playing but nothing is pre-scheduled — schedule for gapless transition
+      scheduleNextChunk();
+    } else if (!currentSourceRef.current && !isProcessingAudioRef.current) {
+      // Playing but idle (previous chunk ended while queue was empty) — kick off
+      processNextAudioChunk();
     }
-    
-    isFetchingAudioRef.current = false;
   };
 
-  // FIXED: Play audio chunk with version guard to prevent stale async calls
-  const playAudioChunk = async (chunk: { text: string; buffer?: AudioBuffer }, resumeOffset: number = 0) => {
+  // --- Gapless audio playback chain ---
+  //
+  // Core idea: after starting a chunk, immediately pre-schedule the NEXT chunk
+  // to start at the exact sample-accurate end time of the current one. The Web
+  // Audio API handles the seamless transition internally — zero JS processing gap.
+
+  const playAudioChunk = async (audioBuffer: AudioBuffer, resumeOffset = 0) => {
     if (!audioContextRef.current || !isPlayingRef.current) return;
-
-    // Capture the current playback version. If it changes (due to pause/stop/restart)
-    // during any await, this call is stale and must abort to prevent double-playback.
     const myVersion = playbackVersionRef.current;
 
     try {
-      // Ensure audio context is running
-      if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-      }
-
-      // Version check after await — abort if a pause/stop/restart happened
-      if (playbackVersionRef.current !== myVersion) {
-        console.log('🛑 Stale playback call (version changed during context resume), aborting');
-        return;
-      }
-
-      let audioBuffer = chunk.buffer;
-      
-      // Fetch buffer if not already available
-      if (!audioBuffer) {
-        console.log('⏳ Fetching audio on-demand...');
-        audioBuffer = await fetchAudio(chunk.text);
-        if (!audioBuffer) {
-          console.error('Failed to fetch audio buffer');
-          processNextAudioChunk();
-          return;
-        }
-        chunk.buffer = audioBuffer; // Cache it
-      }
-
-      // Version check after await — abort if a pause/stop/restart happened
-      if (playbackVersionRef.current !== myVersion) {
-        console.log('🛑 Stale playback call (version changed during audio fetch), aborting');
-        return;
-      }
+      if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
+      if (playbackVersionRef.current !== myVersion) return;
 
       const source = audioContextRef.current.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(audioContextRef.current.destination);
-      
-      // Always start immediately at current time — no pre-scheduling.
-      // This ensures only ONE source is ever active. The next chunk is started
-      // by the onended callback, not by scheduling it in the future.
-      const startTime = audioContextRef.current.currentTime;
-      
-      // Store when this chunk starts for accurate pause tracking
-      // Subtract resumeOffset so that (currentTime - chunkStartTimeRef) gives the correct
-      // absolute position within the audio buffer when pausing after a resume
-      chunkStartTimeRef.current = startTime - resumeOffset;
-      
-      const remainingDuration = audioBuffer.duration - resumeOffset;
-      
-      console.log(`▶️ Playing chunk ${currentChunkIndexRef.current} (duration: ${audioBuffer.duration.toFixed(2)}s, offset: ${resumeOffset.toFixed(2)}s, remaining: ${remainingDuration.toFixed(2)}s)`);
-      
-      // Start playback immediately from the offset
-      source.start(0, resumeOffset);
-      
+
+      const startAt = audioContextRef.current.currentTime;
+      chunkStartTimeRef.current = startAt - resumeOffset;
+
+      console.log(`▶️ Chunk ${currentChunkIndexRef.current} (${audioBuffer.duration.toFixed(2)}s, offset ${resumeOffset.toFixed(2)}s)`);
+      source.start(startAt, resumeOffset);
       currentSourceRef.current = source;
-      
-      // Set up callback for when this chunk ends
+
+      // Calculate exactly when this chunk ends (for pre-scheduling the next one)
+      const endTime = startAt + (audioBuffer.duration - resumeOffset);
+
       source.onended = () => {
-        // If .stop() was called manually (pause/stop), don't advance state
-        if (manualStopRef.current) {
-          manualStopRef.current = false;
-          currentSourceRef.current = null;
+        // Version check: if pause/stop incremented the version, this callback is stale
+        if (playbackVersionRef.current !== myVersion) {
+          if (currentSourceRef.current === source) currentSourceRef.current = null;
           return;
         }
-        console.log('✓ Chunk ended naturally, moving to next');
-        currentSourceRef.current = null;
-        pausedAtTimeRef.current = 0; // Reset offset for next chunk
-        currentChunkIndexRef.current++; // Move to next chunk
-        processNextAudioChunk();
+
+        // Gapless promotion: the pre-scheduled next source is already playing
+        if (nextSourceRef.current) {
+          currentSourceRef.current = nextSourceRef.current;
+          nextSourceRef.current = null;
+          currentChunkIndexRef.current++;
+          chunkStartTimeRef.current = nextStartTimeRef.current;
+          pausedAtTimeRef.current = 0;
+          // Try to pre-schedule yet another chunk
+          scheduleNextChunk();
+        } else {
+          currentSourceRef.current = null;
+          pausedAtTimeRef.current = 0;
+          currentChunkIndexRef.current++;
+          processNextAudioChunk();
+        }
       };
 
-      // Pre-fetch next chunk while current is playing
-      preFetchNextChunk();
+      // Pre-schedule next chunk for gapless playback
+      scheduleNextChunkAt(endTime, myVersion);
 
     } catch (error) {
       console.error('Error playing audio chunk:', error);
@@ -631,388 +673,271 @@ const AgriAdvisoryInterface = () => {
     }
   };
 
-  // Process next audio chunk from queue
-  // IMPORTANT: Only processes if no source is currently playing.
-  // This prevents multiple overlapping AudioBufferSourceNodes.
+  // Pre-schedule the next chunk at exactly the end time of the current chunk
+  const scheduleNextChunk = () => {
+    if (!audioContextRef.current || !isPlayingRef.current || nextSourceRef.current) return;
+
+    const currentBuf = allProcessedChunksRef.current[currentChunkIndexRef.current];
+    if (!currentBuf) return;
+
+    const endTime = chunkStartTimeRef.current + currentBuf.duration;
+    scheduleNextChunkAt(endTime, playbackVersionRef.current);
+  };
+
+  const scheduleNextChunkAt = (startTime: number, version: number) => {
+    if (!audioContextRef.current || nextSourceRef.current) return;
+    if (audioQueueRef.current.length === 0) return;
+    if (playbackVersionRef.current !== version) return;
+
+    const buf = audioQueueRef.current.shift()!;
+    allProcessedChunksRef.current.push(buf);
+
+    const source = audioContextRef.current.createBufferSource();
+    source.buffer = buf;
+    source.connect(audioContextRef.current.destination);
+    source.start(startTime);
+
+    nextSourceRef.current = source;
+    nextStartTimeRef.current = startTime;
+
+    console.log(`⏭️ Pre-scheduled next chunk (${buf.duration.toFixed(2)}s) at ${startTime.toFixed(3)}s`);
+
+    source.onended = () => {
+      if (playbackVersionRef.current !== version) {
+        if (currentSourceRef.current === source) currentSourceRef.current = null;
+        if (nextSourceRef.current === source) nextSourceRef.current = null;
+        return;
+      }
+
+      // This pre-scheduled chunk (now current) just finished
+      if (nextSourceRef.current && nextSourceRef.current !== source) {
+        // Another chunk was pre-scheduled after this one — promote it
+        currentSourceRef.current = nextSourceRef.current;
+        nextSourceRef.current = null;
+        currentChunkIndexRef.current++;
+        chunkStartTimeRef.current = nextStartTimeRef.current;
+        pausedAtTimeRef.current = 0;
+        scheduleNextChunk();
+      } else {
+        currentSourceRef.current = null;
+        nextSourceRef.current = null;
+        pausedAtTimeRef.current = 0;
+        currentChunkIndexRef.current++;
+        processNextAudioChunk();
+      }
+    };
+  };
+
   const processNextAudioChunk = async () => {
-    if (!isPlayingRef.current || isProcessingAudioRef.current || currentSourceRef.current) {
-      console.log('⏸️ Not processing: playing=' + isPlayingRef.current + ', processing=' + isProcessingAudioRef.current + ', sourceActive=' + !!currentSourceRef.current);
-      return;
+    if (!isPlayingRef.current || isProcessingAudioRef.current || currentSourceRef.current) return;
+
+    // Safety: ensure AudioContext is running before playing any chunk
+    if (audioContextRef.current?.state === 'suspended') {
+      try { await audioContextRef.current.resume(); } catch { /* */ }
     }
+
+    const myVersion = playbackVersionRef.current;
 
     if (audioQueueRef.current.length > 0) {
       isProcessingAudioRef.current = true;
-      const chunk = audioQueueRef.current.shift();
-      
-      if (chunk && chunk.text.trim()) {
-        console.log(`📤 Processing chunk from queue (${audioQueueRef.current.length} remaining)`);
-        
-        // Store this chunk in processed list
-        allProcessedChunksRef.current.push(chunk);
-        currentChunkIndexRef.current = allProcessedChunksRef.current.length - 1;
-        
-        // IMPORTANT: Always use pausedAtTimeRef for resume offset, then reset it
-        const offset = pausedAtTimeRef.current;
-        pausedAtTimeRef.current = 0; // Reset after using
-        
-        await playAudioChunk(chunk, offset);
-      }
-      
-      isProcessingAudioRef.current = false;
-    } else {
-      // Queue is empty, check for pending text
-      if (currentTextChunkRef.current.trim()) {
-        console.log('📝 Processing pending text chunk');
-        const sentences = splitIntoSentences(currentTextChunkRef.current);
-        currentTextChunkRef.current = '';
-        
-        for (const sentence of sentences) {
-          if (sentence.trim()) {
-            audioQueueRef.current.push({ text: sentence });
-          }
-        }
-        
-        if (audioQueueRef.current.length > 0) {
-          processNextAudioChunk();
-        }
-      } else if (!isGenerating) {
-        // No more audio to play and generation is complete
-        console.log('🏁 Audio playback complete');
-        setIsPlayingAudio(false);
-        isPlayingRef.current = false;
-        hasAudioStartedRef.current = false;
-        nextPlayTimeRef.current = 0;
-      }
-    }
-  };
+      const buf = audioQueueRef.current.shift()!;
 
-  // Start audio playback automatically
-  const startAudioPlayback = async () => {
-    if (!autoPlayAudio || hasAudioStartedRef.current || !audioContextRef.current) {
-      console.log('⏭️ Skipping audio start: autoPlay=' + autoPlayAudio + ', started=' + hasAudioStartedRef.current);
-      return;
-    }
+      allProcessedChunksRef.current.push(buf);
+      currentChunkIndexRef.current = allProcessedChunksRef.current.length - 1;
 
-    console.log('🎬 Starting audio playback...');
-    
-    // Reset audio state
-    if (currentSourceRef.current) {
-      currentSourceRef.current.stop();
-      currentSourceRef.current = null;
-    }
-
-    isPlayingRef.current = true;
-    setIsPlayingAudio(true);
-    setIsPausedAudio(false);
-    hasAudioStartedRef.current = true;
-    nextPlayTimeRef.current = audioContextRef.current.currentTime;
-    pausedAtTimeRef.current = 0;
-    currentChunkIndexRef.current = -1;
-
-    // Process accumulated text into sentences
-    if (currentTextChunkRef.current.trim()) {
-      const sentences = splitIntoSentences(currentTextChunkRef.current);
-      currentTextChunkRef.current = '';
-      
-      console.log(`📚 Queuing ${sentences.length} sentences for playback`);
-      
-      for (const sentence of sentences) {
-        if (sentence.trim()) {
-          audioQueueRef.current.push({ text: sentence });
-        }
-      }
-    }
-
-    // Start processing queue
-    if (audioQueueRef.current.length > 0) {
-      console.log(`🚀 Starting playback with ${audioQueueRef.current.length} chunks in queue`);
-      processNextAudioChunk();
-    }
-  };
-
-  // Process incoming text for audio - enhanced for continuous streaming
-  const processTextForAudio = (text: string) => {
-    if (!autoPlayAudio || !text.trim()) return;
-
-    const cleanText = cleanTextForSpeech(text);
-    if (!cleanText) return;
-
-    // Count words
-    const words = cleanText.split(/\s+/).filter(word => word.length > 0);
-    wordCountRef.current += words.length;
-
-    // Accumulate text
-    currentTextChunkRef.current += ' ' + cleanText;
-
-    // Start audio when we have enough words
-    if (wordCountRef.current >= MIN_WORDS_FOR_AUDIO && !hasAudioStartedRef.current) {
-      console.log(`✨ Reached ${wordCountRef.current} words, starting autoplay...`);
-      startAudioPlayback();
-    }
-    // If audio already playing, check if we have complete sentences to queue
-    else if (hasAudioStartedRef.current && isPlayingRef.current) {
-      // Look for sentence endings in accumulated text
-      const sentencePattern = /[.!?]+/;
-      if (sentencePattern.test(currentTextChunkRef.current)) {
-        const sentences = splitIntoSentences(currentTextChunkRef.current);
-        
-        // Keep the last incomplete sentence in the buffer
-        const lastSentence = sentences[sentences.length - 1];
-        const endsWithPunctuation = /[.!?]$/.test(lastSentence);
-        
-        if (sentences.length > 1 || endsWithPunctuation) {
-          const sentencesToQueue = endsWithPunctuation ? sentences : sentences.slice(0, -1);
-          const remaining = endsWithPunctuation ? '' : lastSentence;
-          
-          console.log(`➕ Adding ${sentencesToQueue.length} complete sentences to queue`);
-          
-          for (const sentence of sentencesToQueue) {
-            if (sentence.trim()) {
-              audioQueueRef.current.push({ text: sentence });
-            }
-          }
-          
-          currentTextChunkRef.current = remaining;
-          
-          // Trigger processing if not already processing
-          if (!isProcessingAudioRef.current && audioQueueRef.current.length > 0) {
-            processNextAudioChunk();
-          }
-        }
-      }
-    }
-  };
-
-  // FIXED: Pause audio playback - works even between chunks (no active source)
-  const pauseAudioPlayback = () => {
-    if (!audioContextRef.current) return;
-
-    console.log('⏸️ Pausing audio playback');
-    
-    // Increment version to invalidate any in-flight async playAudioChunk calls
-    playbackVersionRef.current++;
-    
-    if (currentSourceRef.current) {
-      // Mid-chunk pause: stop the source and save the exact position
-      try {
-        const currentTime = audioContextRef.current.currentTime;
-        
-        // Because chunkStartTimeRef accounts for resumeOffset, this gives the
-        // absolute position within the audio buffer
-        const elapsedInChunk = currentTime - chunkStartTimeRef.current;
-        pausedAtTimeRef.current = Math.max(0, elapsedInChunk);
-        
-        console.log(`💾 Paused at ${pausedAtTimeRef.current.toFixed(2)}s into chunk ${currentChunkIndexRef.current}`);
-        
-        // Set manual stop flag BEFORE calling .stop() so the onended handler
-        // knows not to corrupt our saved pause state
-        manualStopRef.current = true;
-        currentSourceRef.current.stop();
-        currentSourceRef.current = null;
-      } catch (e) {
-        console.warn('Error stopping audio source:', e);
-        pausedAtTimeRef.current = 0;
-      }
-    } else {
-      // Between chunks (fetching or gap) - no source to stop
-      // pausedAtTimeRef stays 0; resume will continue from the next queued chunk
-      console.log('⏸️ Paused between chunks');
+      const offset = pausedAtTimeRef.current;
       pausedAtTimeRef.current = 0;
-    }
-    
-    // ALWAYS update state so button transitions to "Resume Audio"
-    isPlayingRef.current = false;
-    isProcessingAudioRef.current = false;
-    setIsPlayingAudio(false);
-    setIsPausedAudio(true);
-    nextPlayTimeRef.current = 0;
-
-    // Suspend audio context to stop all audio processing
-    if (audioContextRef.current.state !== 'suspended') {
-      audioContextRef.current.suspend().then(() => {
-        console.log('✅ Audio context suspended');
-      }).catch(err => {
-        console.error('Error suspending audio context:', err);
-      });
-    }
-  };
-
-  // FIXED: Resume audio playback - handles mid-chunk, between-chunk, and full restart
-  const resumeAudioPlayback = async () => {
-    if (!audioContextRef.current) return;
-
-    console.log(`▶️ Resuming from chunk ${currentChunkIndexRef.current} at ${pausedAtTimeRef.current.toFixed(2)}s`);
-    
-    // Resume audio context first (always await to ensure it's running)
-    await audioContextRef.current.resume();
-    console.log('✅ Audio context resumed');
-    
-    const currentChunk = allProcessedChunksRef.current[currentChunkIndexRef.current];
-    
-    if (currentChunk && pausedAtTimeRef.current > 0) {
-      // CASE 1: Mid-chunk pause — resume from the saved offset within the buffer
-      console.log(`🎯 Resuming chunk "${currentChunk.text.substring(0, 30)}..." from ${pausedAtTimeRef.current.toFixed(2)}s`);
-      
-      // Re-add remaining processed chunks + existing queue
-      const remainingChunks = allProcessedChunksRef.current.slice(currentChunkIndexRef.current + 1);
-      audioQueueRef.current = [...remainingChunks, ...audioQueueRef.current];
-      
-      // Remove current chunk from processed list (processNextAudioChunk will re-add it)
-      allProcessedChunksRef.current = allProcessedChunksRef.current.slice(0, currentChunkIndexRef.current);
-      
-      // Put current chunk at the front of the queue with its cached buffer
-      audioQueueRef.current.unshift(currentChunk);
-      
-      isPlayingRef.current = true;
-      setIsPlayingAudio(true);
-      setIsPausedAudio(false);
-      nextPlayTimeRef.current = audioContextRef.current.currentTime;
-      
-      // Decrease chunk index since we removed it from processed
-      currentChunkIndexRef.current--;
-      
-      // Start processing — pausedAtTimeRef will be consumed as the resume offset
-      isProcessingAudioRef.current = false;
-      processNextAudioChunk();
-      
-    } else {
-      // CASE 2: Not mid-chunk. Either paused between chunks (during fetch / gap)
-      // or all audio finished. Re-queue any chunk that was being processed but
-      // never actually played, then continue from the queue.
-      
-      const replayIndex = currentChunkIndexRef.current;
-      if (replayIndex >= 0 && replayIndex < allProcessedChunksRef.current.length) {
-        // The chunk at replayIndex was shifted from queue into allProcessedChunks
-        // but may not have been played. Re-queue it (and any after it) so nothing is skipped.
-        const chunksToRequeue = allProcessedChunksRef.current.slice(replayIndex);
-        allProcessedChunksRef.current = allProcessedChunksRef.current.slice(0, replayIndex);
-        audioQueueRef.current = [...chunksToRequeue, ...audioQueueRef.current];
-        currentChunkIndexRef.current = replayIndex > 0 ? replayIndex - 1 : -1;
-        console.log(`♻️ Re-queued ${chunksToRequeue.length} unplayed chunk(s)`);
-      }
-      
-      pausedAtTimeRef.current = 0;
-      
-      if (audioQueueRef.current.length > 0) {
-        // Continue from where we left off
-        console.log(`▶️ Continuing playback with ${audioQueueRef.current.length} chunks in queue`);
-        
-        isPlayingRef.current = true;
-        setIsPlayingAudio(true);
-        setIsPausedAudio(false);
-        nextPlayTimeRef.current = audioContextRef.current.currentTime;
+      await playAudioChunk(buf, offset);
+      // Only reset if still in the same playback generation — prevents a stale
+      // async callback from corrupting state for a newer generation.
+      if (playbackVersionRef.current === myVersion) {
         isProcessingAudioRef.current = false;
-        processNextAudioChunk();
-        
-      } else if (response) {
-        // Nothing left in queue at all — restart from the full response text
-        console.log('🔄 Queue empty, restarting from beginning');
-        stopAudioPlayback();
-        
-        await audioContextRef.current.resume();
-        
-        const sentences = splitIntoSentences(response);
-        console.log(`📚 Queuing ${sentences.length} sentences for restart`);
-        
-        for (const sentence of sentences) {
-          if (sentence.trim()) {
-            audioQueueRef.current.push({ text: sentence });
-          }
-        }
-        
-        hasAudioStartedRef.current = true;
-        isPlayingRef.current = true;
-        setIsPlayingAudio(true);
-        setIsPausedAudio(false);
-        currentChunkIndexRef.current = -1;
-        pausedAtTimeRef.current = 0;
-        nextPlayTimeRef.current = audioContextRef.current.currentTime;
-        
-        processNextAudioChunk();
       }
+    } else if (wsEndedRef.current && !isGeneratingRef.current) {
+      // Use ref (not state) so this always sees the current value, even when
+      // called from an onended closure that captured a stale render.
+      console.log('🏁 Audio playback complete');
+      setIsPlayingAudio(false);
+      isPlayingRef.current = false;
+      hasAudioStartedRef.current = false;
     }
   };
 
-  // Stop audio playback completely
-  // NOTE: Does NOT suspend the audio context — callers that need suspension
-  //       (like pauseAudioPlayback) handle it themselves. This avoids the async
-  //       suspend race condition when stopAudioPlayback is followed by immediate replay.
-  const stopAudioPlayback = () => {
-    console.log('⏹️ Stopping audio playback');
-    
-    // Increment version to invalidate any in-flight async playAudioChunk calls
-    playbackVersionRef.current++;
-    
-    isPlayingRef.current = false;
-    hasAudioStartedRef.current = false;
-    wordCountRef.current = 0;
-    nextPlayTimeRef.current = 0;
-    pausedAtTimeRef.current = 0;
-    currentChunkIndexRef.current = -1;
-    chunkStartTimeRef.current = 0;
-    
-    // Stop and clear current audio source
-    if (currentSourceRef.current) {
-      try {
-        manualStopRef.current = true; // Prevent onended from firing side effects
-        currentSourceRef.current.stop();
-      } catch (e) {
-        // Ignore error if already stopped
-      }
-      currentSourceRef.current = null;
-    }
+  // Process incoming LLM text for audio.
+  // The WS is pre-opened eagerly in generateAdvisory; this function sends
+  // text directly if the WS is ready, or queues it for when it opens.
+  const processTextForAudio = (text: string) => {
+    if (!text.trim()) return;
+    const clean = cleanTextForSpeech(text);
+    if (!clean) return;
 
-    // Clear all queues
-    audioQueueRef.current = [];
-    allProcessedChunksRef.current = [];
-    currentTextChunkRef.current = '';
-    isProcessingAudioRef.current = false;
-    isFetchingAudioRef.current = false;
-    
-    // Update UI state
-    setIsPlayingAudio(false);
-    setIsPausedAudio(false);
-  };
-
-  // Toggle audio playback (for manual control)
-  const toggleAudioPlayback = async () => {
-    if (isPlayingAudio) {
-      // Pause if playing
-      pauseAudioPlayback();
-    } else if (isPausedAudio) {
-      // Resume if paused
-      await resumeAudioPlayback();
-    } else if (response) {
-      // Start new playback from beginning
-      console.log('🔄 Starting fresh playback');
-      stopAudioPlayback();
-      
-      // Ensure audio context is running (await to avoid race with any pending suspend)
-      if (audioContextRef.current) {
-        await audioContextRef.current.resume();
-      }
-      
+    // Prime audio playback state on very first non-thinking text so the UI
+    // shows "Playing" immediately and the first audio chunk auto-starts.
+    if (!hasAudioStartedRef.current && isGeneratingRef.current) {
       hasAudioStartedRef.current = true;
       isPlayingRef.current = true;
       setIsPlayingAudio(true);
       setIsPausedAudio(false);
+      // Ensure AudioContext is running (may have been suspended by browser policy)
+      if (audioContextRef.current?.state === 'suspended') {
+        audioContextRef.current.resume().catch(() => {});
+      }
+    }
+
+    // If WebSocket is already open, send directly (fastest path)
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      sendTextToTTS(clean);
+      return;
+    }
+
+    // Queue text — flushed automatically when WS opens (onopen handler)
+    pendingTextRef.current += clean + ' ';
+
+    // Open WebSocket if not already opening/open
+    if (!wsOpeningRef.current) {
+      wsOpeningRef.current = true;
+      openTTSWebSocket()
+        .then(() => { wsOpeningRef.current = false; })
+        .catch((e) => {
+          wsOpeningRef.current = false;
+          console.error('Failed to open TTS WebSocket, audio unavailable:', e);
+        });
+    }
+  };
+
+  // --- Pause / Resume / Stop / Toggle ---
+
+  const pauseAudioPlayback = () => {
+    if (!audioContextRef.current) return;
+    console.log('⏸️ Pausing');
+    playbackVersionRef.current++;
+
+    // Stop and re-queue the pre-scheduled next source (it hasn't been heard yet)
+    if (nextSourceRef.current) {
+      try { nextSourceRef.current.stop(); } catch { /* */ }
+      nextSourceRef.current = null;
+      // Its buffer is the last entry in allProcessedChunksRef — pop it back to queue
+      const buf = allProcessedChunksRef.current.pop();
+      if (buf) audioQueueRef.current.unshift(buf);
+    }
+
+    if (currentSourceRef.current) {
+      try {
+        const elapsed = audioContextRef.current.currentTime - chunkStartTimeRef.current;
+        pausedAtTimeRef.current = Math.max(0, elapsed);
+        currentSourceRef.current.stop();
+        currentSourceRef.current = null;
+      } catch { pausedAtTimeRef.current = 0; }
+    } else {
       pausedAtTimeRef.current = 0;
-      currentChunkIndexRef.current = -1;
-      
-      const sentences = splitIntoSentences(response);
-      console.log(`📚 Queuing ${sentences.length} sentences for playback`);
-      
-      for (const sentence of sentences) {
-        if (sentence.trim()) {
-          audioQueueRef.current.push({ text: sentence });
-        }
-      }
-      
-      if (audioContextRef.current) {
-        nextPlayTimeRef.current = audioContextRef.current.currentTime;
-      }
-      
+    }
+
+    isPlayingRef.current = false;
+    isProcessingAudioRef.current = false;
+    setIsPlayingAudio(false);
+    setIsPausedAudio(true);
+
+    if (audioContextRef.current.state !== 'suspended') {
+      audioContextRef.current.suspend().catch(() => {});
+    }
+  };
+
+  const resumeAudioPlayback = async () => {
+    if (!audioContextRef.current) return;
+    await audioContextRef.current.resume();
+
+    const currentChunk = allProcessedChunksRef.current[currentChunkIndexRef.current];
+
+    if (currentChunk && pausedAtTimeRef.current > 0) {
+      // Mid-chunk resume
+      const remaining = allProcessedChunksRef.current.slice(currentChunkIndexRef.current + 1);
+      audioQueueRef.current = [...remaining, ...audioQueueRef.current];
+      allProcessedChunksRef.current = allProcessedChunksRef.current.slice(0, currentChunkIndexRef.current);
+      audioQueueRef.current.unshift(currentChunk);
+      currentChunkIndexRef.current--;
+      isPlayingRef.current = true;
+      setIsPlayingAudio(true);
+      setIsPausedAudio(false);
+      isProcessingAudioRef.current = false;
       processNextAudioChunk();
+    } else if (audioQueueRef.current.length > 0) {
+      // Between chunks — continue
+      const idx = currentChunkIndexRef.current;
+      if (idx >= 0 && idx < allProcessedChunksRef.current.length) {
+        const toRequeue = allProcessedChunksRef.current.slice(idx);
+        allProcessedChunksRef.current = allProcessedChunksRef.current.slice(0, idx);
+        audioQueueRef.current = [...toRequeue, ...audioQueueRef.current];
+        currentChunkIndexRef.current = idx > 0 ? idx - 1 : -1;
+      }
+      pausedAtTimeRef.current = 0;
+      isPlayingRef.current = true;
+      setIsPlayingAudio(true);
+      setIsPausedAudio(false);
+      isProcessingAudioRef.current = false;
+      processNextAudioChunk();
+    } else if (response) {
+      await startFreshPlayback();
+    }
+  };
+
+  const stopAudioPlayback = () => {
+    playbackVersionRef.current++;
+    isPlayingRef.current = false;
+    hasAudioStartedRef.current = false;
+    pausedAtTimeRef.current = 0;
+    currentChunkIndexRef.current = -1;
+    chunkStartTimeRef.current = 0;
+
+    // Stop both current and pre-scheduled sources
+    if (nextSourceRef.current) {
+      try { nextSourceRef.current.stop(); } catch { /* */ }
+      nextSourceRef.current = null;
+    }
+    if (currentSourceRef.current) {
+      try { currentSourceRef.current.stop(); } catch { /* */ }
+      currentSourceRef.current = null;
+    }
+
+    audioQueueRef.current = [];
+    allProcessedChunksRef.current = [];
+    isProcessingAudioRef.current = false;
+    closeTTSWebSocket();
+    setIsPlayingAudio(false);
+    setIsPausedAudio(false);
+  };
+
+  const startFreshPlayback = async () => {
+    stopAudioPlayback();
+    if (audioContextRef.current) await audioContextRef.current.resume();
+
+    hasAudioStartedRef.current = true;
+    isPlayingRef.current = true;
+    setIsPlayingAudio(true);
+    setIsPausedAudio(false);
+    pausedAtTimeRef.current = 0;
+    currentChunkIndexRef.current = -1;
+    wsEndedRef.current = false;
+
+    try {
+      await openTTSWebSocket();
+      const clean = cleanTextForSpeech(response);
+      if (clean) sendTextToTTS(clean);
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ text: '' }));
+      }
+    } catch (e) {
+      console.error('Failed to start fresh playback:', e);
+      stopAudioPlayback();
+    }
+  };
+
+  const toggleAudioPlayback = async () => {
+    if (isPlayingAudio) {
+      pauseAudioPlayback();
+    } else if (isPausedAudio) {
+      await resumeAudioPlayback();
+    } else if (response) {
+      await startFreshPlayback();
     }
   };
 
@@ -1209,8 +1134,22 @@ Output Restrictions:
 
     // Reset audio state for new generation
     stopAudioPlayback();
+    wsEndedRef.current = false;
+
+    // Ensure AudioContext is valid — recreate if it was closed from a previous error
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    // Resume AudioContext on user gesture — browsers require a user interaction.
+    // Always call resume() regardless of current state to be safe.
+    await audioContextRef.current.resume();
+
+    // Reset request ID for the new generation
+    requestIdRef.current = null;
 
     setIsGenerating(true);
+    isGeneratingRef.current = true;
+    userScrolledAwayRef.current = false; // Reset scroll tracking for new generation
     setError('');
     setResponse('');
     setDisplayedResponse('');
@@ -1244,6 +1183,16 @@ Output Restrictions:
       }
       streamReaderRef.current = reader;
 
+      // Pre-open TTS WebSocket eagerly so audio starts with zero connection delay.
+      // The 180s inactivity_timeout in the WS URL covers long thinking phases.
+      wsOpeningRef.current = true;
+      openTTSWebSocket()
+        .then(() => { wsOpeningRef.current = false; })
+        .catch((e) => {
+          wsOpeningRef.current = false;
+          console.error('Failed to pre-open TTS WebSocket:', e);
+        });
+
       const decoder = new TextDecoder();
       let fullResponseText = '';
       let allChunks = '';
@@ -1270,6 +1219,13 @@ Output Restrictions:
                 .replace(/False/g, 'false');
 
               const parsed = JSON.parse(sanitizedData);
+
+              // Capture the request_id from the first chunk for explicit cancellation
+              if (!requestIdRef.current && parsed.id) {
+                requestIdRef.current = parsed.id;
+                console.log('📋 Captured request_id:', parsed.id);
+              }
+
               let content = '';
 
               content = parsed.choices?.[0]?.delta?.content || '';
@@ -1281,6 +1237,9 @@ Output Restrictions:
               if (content) {
                 fullResponseText += content;
                 
+                // Track display text length BEFORE parsing so we can extract
+                // only the newly-added response text for TTS (not thinking text).
+                const prevDisplayLen = state.displayText.length;
                 state = processStreamChunk(
                   content, 
                   state, 
@@ -1294,9 +1253,11 @@ Output Restrictions:
                 setThinkingContent(cleanThinkingContent(state.thinking, uiSettings.thinkingStartToken, uiSettings.thinkingEndToken));
                 setIsThinking(state.inThinkingMode);
                 
-                // Process text for continuous audio streaming when out of thinking mode
-                if (!state.inThinkingMode && cleanedResponse && cleanedResponse.trim()) {
-                  processTextForAudio(content);
+                // Only send the NEW display text to TTS — never raw content delta,
+                // which may include thinking text before the end token.
+                const newDisplayText = state.displayText.slice(prevDisplayLen);
+                if (!state.inThinkingMode && newDisplayText && newDisplayText.trim()) {
+                  processTextForAudio(newDisplayText);
                 }
               }
             } 
@@ -1308,6 +1269,7 @@ Output Restrictions:
                 const content = contentMatch[1];
                 fullResponseText += content;
                 
+                const prevDisplayLen = state.displayText.length;
                 state = processStreamChunk(
                   content, 
                   state, 
@@ -1321,8 +1283,9 @@ Output Restrictions:
                 setThinkingContent(cleanThinkingContent(state.thinking, uiSettings.thinkingStartToken, uiSettings.thinkingEndToken));
                 setIsThinking(state.inThinkingMode);
                 
-                if (!state.inThinkingMode && cleanedResponse && cleanedResponse.trim()) {
-                  processTextForAudio(content);
+                const newDisplayText = state.displayText.slice(prevDisplayLen);
+                if (!state.inThinkingMode && newDisplayText && newDisplayText.trim()) {
+                  processTextForAudio(newDisplayText);
                 }
               }
             }
@@ -1333,31 +1296,19 @@ Output Restrictions:
       console.log("=== STREAMING COMPLETE ===");
       console.log("Total response length:", fullResponseText.length);
       console.log("Audio queue length:", audioQueueRef.current.length);
-      console.log("Pending text:", currentTextChunkRef.current);
 
-      // Process any remaining text after streaming completes
-      if (currentTextChunkRef.current.trim()) {
-        console.log('📝 Processing final remaining text');
-        const sentences = splitIntoSentences(currentTextChunkRef.current);
-        currentTextChunkRef.current = '';
-        
-        for (const sentence of sentences) {
-          if (sentence.trim()) {
-            audioQueueRef.current.push({ text: sentence });
+      // Send EOS to WebSocket to flush remaining buffered text and close
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        try {
+          // Send any pending text first
+          if (pendingTextRef.current) {
+            sendTextToTTS(pendingTextRef.current);
+            pendingTextRef.current = '';
           }
-        }
-        
-        // Start audio if not started yet
-        if (!hasAudioStartedRef.current && audioQueueRef.current.length > 0) {
-          console.log('🎬 Starting audio with final chunks');
-          hasAudioStartedRef.current = true;
-          isPlayingRef.current = true;
-          setIsPlayingAudio(true);
-          if (audioContextRef.current) {
-            nextPlayTimeRef.current = audioContextRef.current.currentTime;
-          }
-          processNextAudioChunk();
-        }
+          // Signal end of stream — server will send remaining audio + isFinal
+          wsRef.current.send(JSON.stringify({ text: '' }));
+          console.log('📤 Sent EOS to TTS WebSocket');
+        } catch { /* socket may already be closed */ }
       }
 
     } catch (err: unknown) {
@@ -1370,25 +1321,40 @@ Output Restrictions:
     } finally {
       streamReaderRef.current = null;
       setIsGenerating(false);
+      isGeneratingRef.current = false;
       setIsThinking(false);
     }
   };
 
   const stopGeneration = () => {
-    // Cancel the stream reader first so the read loop exits immediately (backend sees connection close)
+    // 1. Explicitly cancel the model generation on the backend via the cancel endpoint
+    if (requestIdRef.current) {
+      const cancelUrl = API_CONFIG.saarthiBaseUrl + '/cancel';
+      fetch(cancelUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request_id: requestIdRef.current }),
+      })
+        .then(() => console.log('✅ Backend generation cancelled for request:', requestIdRef.current))
+        .catch((e) => console.error('Failed to cancel backend generation:', e));
+      requestIdRef.current = null;
+    }
+
+    // 2. Cancel the stream reader so the read loop exits immediately
     if (streamReaderRef.current) {
       streamReaderRef.current.cancel().catch(() => {});
       streamReaderRef.current = null;
     }
-    // Abort the fetch so the request is cancelled on the client and server
+    // 3. Abort the fetch so the request is cancelled on the client side
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    // Stop any auto-playing audio
+    // 4. Stop any auto-playing audio and close TTS WebSocket
     stopAudioPlayback();
-    // Reset UI to "not generating" immediately
+    // 5. Reset UI to "not generating" immediately
     setIsGenerating(false);
+    isGeneratingRef.current = false;
     setIsThinking(false);
   };
 
@@ -1403,69 +1369,49 @@ Output Restrictions:
     setReasoningExpanded(false);
   };
 
-  // Smooth streaming animation
+  // Response: update directly — the SSE stream already provides a natural typing
+  // effect.  The old character-by-character animation caused ~60 ReactMarkdown
+  // re-renders/second which produced visible layout jitter ("shaking").
   useEffect(() => {
-    responseBufferRef.current = response;
-    thinkingBufferRef.current = thinkingContent;
-    
-    const animateText = () => {
-      let updated = false;
-      
-      if (displayedResponse.length < responseBufferRef.current.length) {
-        const charsToAdd = Math.min(3, responseBufferRef.current.length - displayedResponse.length);
-        setDisplayedResponse(responseBufferRef.current.slice(0, displayedResponse.length + charsToAdd));
-        updated = true;
-      }
-      
-      if (displayedThinking.length < thinkingBufferRef.current.length) {
-        const charsToAdd = Math.min(3, thinkingBufferRef.current.length - displayedThinking.length);
-        setDisplayedThinking(thinkingBufferRef.current.slice(0, displayedThinking.length + charsToAdd));
-        updated = true;
-      }
-      
-      if (updated) {
-        animationFrameRef.current = requestAnimationFrame(animateText);
-      }
-    };
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-    animationFrameRef.current = requestAnimationFrame(animateText);
-    
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [response, thinkingContent, displayedResponse, displayedThinking]);
+    setDisplayedResponse(response);
+  }, [response]);
+
+  // Thinking: also update directly from stream
+  useEffect(() => {
+    setDisplayedThinking(thinkingContent);
+  }, [thinkingContent]);
 
   // Auto-scroll thinking content when expanded
   useEffect(() => {
     if (thinkingRef.current && displayedThinking && reasoningExpanded) {
-      thinkingRef.current.scrollTop = thinkingRef.current.scrollHeight;
+      thinkingRef.current.scrollTo({
+        top: thinkingRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
     }
   }, [displayedThinking, reasoningExpanded]);
 
-  // Auto-scroll response - FIXED version
+  // Detect user scroll — when the user scrolls away from the bottom, stop
+  // auto-scrolling so they can read earlier content.  Resume auto-scroll
+  // once they scroll back near the bottom.
+  const handleResponseScroll = () => {
+    const container = responseContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    userScrolledAwayRef.current = distanceFromBottom > 150;
+  };
+
+  // Auto-scroll response section — batched with paint via RAF to prevent jitter
   useEffect(() => {
-    if (responseContentRef.current && displayedResponse) {
+    if (!displayedResponse) return;
+    if (userScrolledAwayRef.current) return;
+
+    requestAnimationFrame(() => {
       const container = responseContainerRef.current;
-      const content = responseContentRef.current;
-      
-      if (!container || !content) return;
-      
-      // Calculate if user is near bottom of container
-      const containerScrollBottom = container.scrollTop + container.clientHeight;
-      const contentBottom = content.scrollHeight;
-      const isNearBottom = contentBottom - containerScrollBottom < 100;
-      
-      // Auto-scroll only if user is near bottom
-      if (isNearBottom) {
-        container.scrollTop = content.scrollHeight;
-      }
-    }
-  }, [displayedResponse, isThinking]);
+      if (!container || userScrolledAwayRef.current) return;
+      container.scrollTop = container.scrollHeight;
+    });
+  }, [displayedResponse]);
 
   const getModelName = () => {
     return API_CONFIG.saarthiModel;
@@ -1488,23 +1434,14 @@ Output Restrictions:
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
-      {/* Subtle grid pattern overlay */}
-      <div 
-        className="fixed inset-0 opacity-[0.02]" 
-        style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0)`,
-          backgroundSize: '32px 32px'
-        }}
-      />
-      
+    <div className="min-h-screen bg-[#eef2f6]">
       <div className="relative flex h-screen">
         {/* Sidebar */}
-        <div className="w-80 bg-gray-900/50 border-r border-gray-800 flex flex-col backdrop-blur-xl">
+        <div className="w-80 bg-[#f6f8fa] border-r border-slate-200/80 flex flex-col">
           {/* Logo Header */}
-          <div className="px-10 py-10 border-b border-gray-800">
+          <div className="px-10 py-10 border-b border-slate-200">
             <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-3xl bg-gray-50 shadow-lg flex items-center justify-center">
+              <div className="w-20 h-20 rounded-3xl bg-white/80 shadow-sm border border-slate-200/60 flex items-center justify-center">
                 <img
                   src={companyLogo}
                   alt="Company Logo"
@@ -1512,27 +1449,27 @@ Output Restrictions:
                 />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-white tracking-tight ">Agri-Reasoning</h1>
-                <p className="text-lg font-bold text-white tracking-tight"> Advisor</p>
+                <h1 className="text-lg font-bold text-slate-900 tracking-tight ">Agri-Reasoning</h1>
+                <p className="text-lg font-bold text-slate-900 tracking-tight"> Advisor</p>
               </div>
             </div>
           </div>
 
           {/* API Provider Selection */}
-          <div className="p-3 border-b border-gray-800">
+          <div className="p-3 border-b border-slate-200">
             <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
                 <Zap size={12} />
                 API Provider
               </label>
-              <div className="w-full px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-gray-200 text-sm">
+              <div className="w-full px-3 py-2 bg-white/60 border border-slate-200/80 rounded-lg text-slate-700 text-sm">
                 Sarthi Agri-Model
               </div>
             </div>
           </div>
 
           {/* Input Parameters */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800/30">
+          <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin">
             {/* Basic Info */}
             <CollapsibleSection
               title="Basic Information"
@@ -1638,7 +1575,7 @@ Output Restrictions:
               isOpen={sections.thinking}
               onToggle={() => toggleSection('thinking')}
             >
-              <div className="text-xs text-gray-500 mb-2">
+              <div className="text-xs text-slate-500 mb-2">
                 Configure the tokens that mark model's reasoning/thinking process
               </div>
               <InputField
@@ -1655,7 +1592,7 @@ Output Restrictions:
                 placeholder="e.g., </think>"
                 icon={Brain}
               />
-              <div className="text-xs text-gray-600 mt-2 p-2 bg-gray-800/50 rounded-lg">
+              <div className="text-xs text-slate-500 mt-2 p-2 bg-white/40 rounded-lg border border-slate-200/60">
                 Text between these tokens will be shown in a separate "thinking" window, 
                 and the final response will display clean text without the reasoning.
               </div>
@@ -1663,10 +1600,10 @@ Output Restrictions:
           </div>
 
           {/* Generate Button */}
-          <div className="p-3 border-t border-gray-800 space-y-2">
+          <div className="p-3 border-t border-slate-200 space-y-2">
             <button
               onClick={clearConversation}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-all"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-lg transition-all"
             >
               <RefreshCw size={16} />
               Clear Response
@@ -1675,7 +1612,7 @@ Output Restrictions:
             {isGenerating ? (
               <button
                 onClick={stopGeneration}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/20"
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
               >
                 <Loader2 className="animate-spin" size={20} />
                 Stop Generation
@@ -1684,7 +1621,7 @@ Output Restrictions:
               <button
                 onClick={() => generateAdvisory()}
                 disabled={!uiSettings.crop || !uiSettings.region}
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:shadow-none"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm disabled:shadow-none"
               >
                 <Sparkles size={20} />
                 Generate Advisory
@@ -1696,44 +1633,45 @@ Output Restrictions:
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col">
           {/* Header */}
-          <div className="h-14 border-b border-gray-800 flex items-center justify-between px-6 bg-gray-900/30 backdrop-blur-xl">
+          <div className="h-14 border-b border-slate-200/80 flex items-center justify-between px-6 bg-[#f6f8fa]">
             <div className="flex items-center gap-2">
-              <Brain size={20} className="text-emerald-400" />
-              <span className="text-gray-200 font-medium">Agricultural Advisory Response</span>
+              <Brain size={20} className="text-emerald-600" />
+              <span className="text-slate-800 font-medium">Agricultural Advisory Response</span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-gray-500">
+            <div className="flex items-center gap-2 text-xs">
               <span className={`w-2 h-2 rounded-full animate-pulse ${getProviderColor()}`}></span>
-              <span className="text-gray-400">
+              <span className="text-slate-500">
                 {getProviderLabel()}
               </span>
             </div>
           </div>
 
-          {/* Response Area - FIXED SCROLLING */}
+          {/* Response Area — min-h-0 lets flex child scroll; overflow-y-auto makes it scrollable */}
           <div 
             ref={responseContainerRef}
-            className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800/30"
+            onScroll={handleResponseScroll}
+            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6 scrollbar-thin bg-[#eef2f6]"
           >
             <div className="max-w-6xl mx-auto">
               {error && (
                 <div className="mb-4">
-                  <div className={`bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3`}>
-                    <AlertCircle className={`text-red-400 flex-shrink-0 mt-0.5`} size={20} />
-                    <div className={`text-sm text-red-300`}>{error}</div>
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex items-start gap-3">
+                    <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
+                    <div className="text-sm text-red-600">{error}</div>
                   </div>
                 </div>
               )}
 
               {!response && !isGenerating && !error && (
                 <div className="h-full flex flex-col items-center justify-center text-center min-h-[calc(100vh-14rem)]">
-                  <h2 className="text-4xl font-bold text-gray-200 mb-1">Sarthi 🌿</h2>
-                  <p className="text-gray-500 max-w-md mb-8">
+                  <h2 className="text-4xl font-bold text-slate-800 mb-1">Sarthi 🌿</h2>
+                  <p className="text-slate-500 max-w-md mb-8">
                     Enter your farming parameters in the sidebar and click "Generate Advisory" 
                     to receive AI-powered agricultural recommendations.
                   </p>
                   <div className="flex flex-wrap justify-center gap-3 mb-6">
                     {['Crop Management', 'Pest Control', 'Fertilizer Advice', 'Irrigation Schedule'].map((tag) => (
-                      <span key={tag} className="px-3 py-1.5 bg-gray-800/50 border border-gray-700 rounded-full text-xs text-gray-400">
+                      <span key={tag} className="px-3 py-1.5 bg-white/60 border border-slate-200/80 rounded-full text-xs text-slate-500">
                         {tag}
                       </span>
                     ))}
@@ -1744,54 +1682,54 @@ Output Restrictions:
               {(response || isGenerating) && (
                 <>
                   {/* User Query Summary */}
-                  <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                    <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium mb-2">
+                  <div className="mb-6 p-4 bg-emerald-50/60 border border-emerald-100 rounded-xl">
+                    <div className="flex items-center gap-2 text-emerald-700 text-sm font-medium mb-2">
                       <Send size={14} />
                       Query Parameters
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {uiSettings.month && (
-                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                        <span className="px-2 py-1 bg-white/60 rounded-md text-xs text-slate-600 border border-slate-200/60">
                           📅 {uiSettings.month}
                         </span>
                       )}
                       {uiSettings.growthStage && (
-                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                        <span className="px-2 py-1 bg-white/60 rounded-md text-xs text-slate-600 border border-slate-200/60">
                           🌱 {uiSettings.growthStage}
                         </span>
                       )}
                       {uiSettings.weather && (
-                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                        <span className="px-2 py-1 bg-white/60 rounded-md text-xs text-slate-600 border border-slate-200/60">
                           🌤️ {uiSettings.weather}
                         </span>
                       )}
                       {uiSettings.soilType && (
-                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                        <span className="px-2 py-1 bg-white/60 rounded-md text-xs text-slate-600 border border-slate-200/60">
                           🏔️ {uiSettings.soilType}
                         </span>
                       )}
                       {uiSettings.farmingPractice && (
-                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                        <span className="px-2 py-1 bg-white/60 rounded-md text-xs text-slate-600 border border-slate-200/60">
                           🚜 {uiSettings.farmingPractice}
                         </span>
                       )}
                       {uiSettings.region && (
-                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                        <span className="px-2 py-1 bg-white/60 rounded-md text-xs text-slate-600 border border-slate-200/60">
                           📍 {uiSettings.region}
                         </span>
                       )}
                       {uiSettings.language && (
-                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                        <span className="px-2 py-1 bg-white/60 rounded-md text-xs text-slate-600 border border-slate-200/60">
                           🌐 {uiSettings.language}
                         </span>
                       )}
                       {uiSettings.crop && (
-                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                        <span className="px-2 py-1 bg-white/60 rounded-md text-xs text-slate-600 border border-slate-200/60">
                           🌾 {uiSettings.crop}
                         </span>
                       )}
                       {uiSettings.stress && (
-                        <span className="px-2 py-1 bg-gray-800/50 rounded-md text-xs text-gray-300">
+                        <span className="px-2 py-1 bg-white/60 rounded-md text-xs text-slate-600 border border-slate-200/60">
                           ⚠️ {uiSettings.stress}
                         </span>
                       )}
@@ -1801,16 +1739,16 @@ Output Restrictions:
                   {/* Thinking Content */}
                   {(thinkingContent || displayedThinking) && (
                     <div className="mb-4">
-                      <div className={`border rounded-xl overflow-hidden ${isThinking ? 'bg-amber-500/10 border-amber-500/30' : 'bg-gray-800/30 border-gray-700/50'}`}>
-                        <div className={`flex items-center gap-2 px-3 py-2 border-b ${isThinking ? 'border-amber-500/20 bg-amber-500/5' : 'border-gray-700/30 bg-gray-800/20'}`}>
-                          <Brain size={16} className={isThinking ? 'text-amber-400 animate-pulse' : 'text-gray-400'} />
-                          <span className={`font-medium text-sm ${isThinking ? 'text-amber-400' : 'text-gray-400'}`}>
+                      <div className={`border rounded-xl overflow-hidden ${isThinking ? 'bg-amber-50/50 border-amber-200/80' : 'bg-white/50 border-slate-200/80'}`}>
+                        <div className={`flex items-center gap-2 px-3 py-2 border-b ${isThinking ? 'border-amber-100 bg-amber-50/30' : 'border-slate-200/60 bg-[#f6f8fa]'}`}>
+                          <Brain size={16} className={isThinking ? 'text-amber-600 animate-pulse' : 'text-slate-500'} />
+                          <span className={`font-medium text-sm ${isThinking ? 'text-amber-700' : 'text-slate-600'}`}>
                             {isThinking ? 'Model is thinking...' : 'Reasoning Process'}
                           </span>
                           
                           <button
                             onClick={() => setReasoningExpanded(!reasoningExpanded)}
-                            className="ml-auto flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                            className="ml-auto flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
                           >
                             {reasoningExpanded ? (
                               <>
@@ -1827,22 +1765,22 @@ Output Restrictions:
                           
                           {isThinking && (
                             <div className="flex gap-1">
-                              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                             </div>
                           )}
                         </div>
                         <div 
                           ref={thinkingRef}
-                          className={`overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600/50 scrollbar-track-gray-800/20 ${
+                          className={`overflow-y-auto scrollbar-thin ${
                             reasoningExpanded ? 'max-h-96' : 'max-h-32'
                           }`}
                         >
-                          <pre className={`text-xs whitespace-pre-wrap font-mono leading-relaxed p-3 ${isThinking ? 'text-amber-200/80' : 'text-gray-400'}`}>
+                          <pre className={`text-xs whitespace-pre-wrap font-mono leading-relaxed p-3 ${isThinking ? 'text-amber-800' : 'text-slate-600'}`}>
                             {displayedThinking}
                             {isThinking && displayedThinking.length < thinkingContent.length && (
-                              <span className="inline-block w-1.5 h-3 bg-amber-400 animate-pulse ml-0.5 rounded-sm"></span>
+                              <span className="inline-block w-1.5 h-3 bg-amber-500 animate-pulse ml-0.5 rounded-sm"></span>
                             )}
                           </pre>
                         </div>
@@ -1859,26 +1797,26 @@ Output Restrictions:
                           {/* <span className={`text-xs font-medium ${isPlayingAudio ? 'text-emerald-400' : isPausedAudio ? 'text-blue-400' : 'text-gray-500'}`}>
                             🎵 Audio: {isPlayingAudio ? 'Playing' : isPausedAudio ? 'Paused' : 'Ready'}
                           </span> */}
-                          {isPausedAudio && pausedAtTimeRef.current > 0 && (
-                            <span className="text-xs text-blue-400/70">
+                          {/* {isPausedAudio && pausedAtTimeRef.current > 0 && (
+                            <span className="text-xs text-blue-600">
                               (Paused at {pausedAtTimeRef.current.toFixed(1)}s in chunk {currentChunkIndexRef.current})
                             </span>
-                          )}
+                          )} */}
                           {hasAudioStartedRef.current && !isGenerating && (
-                            <span className="text-xs text-gray-500">
-                              Auto-started
+                            <span className="text-xs text-slate-400">
+                              Audio-started
                             </span>
                           )}
                         </div>
                         <button
                           onClick={toggleAudioPlayback}
                           disabled={!response}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                             isPlayingAudio 
-                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30' 
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100' 
                               : isPausedAudio
-                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30'
-                              : 'bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/20'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+                              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
                           } ${!response ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                           {isPlayingAudio ? (
@@ -1903,11 +1841,11 @@ Output Restrictions:
                     
                     <div 
                       ref={responseContentRef}
-                      className="prose prose-invert prose-emerald max-w-none prose-headings:text-gray-100 prose-p:text-gray-300 prose-strong:text-emerald-400 prose-li:text-gray-300 prose-a:text-emerald-400 prose-code:text-amber-300 prose-code:bg-gray-800/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-800/70 prose-pre:border prose-pre:border-gray-700"
+                      className="prose prose-emerald max-w-none prose-headings:text-slate-900 prose-p:text-slate-700 prose-strong:text-emerald-700 prose-li:text-slate-700 prose-a:text-emerald-600 prose-code:text-slate-800 prose-code:bg-slate-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-slate-100 prose-pre:border prose-pre:border-slate-200"
                     >
                       <ReactMarkdown>{displayedResponse}</ReactMarkdown>
                       {isGenerating && !isThinking && displayedResponse.length < response.length && (
-                        <span className="inline-block w-2 h-5 bg-emerald-500 animate-pulse ml-1 rounded-sm"></span>
+                        <span className="inline-block w-2 h-5 bg-emerald-600 animate-pulse ml-1 rounded-sm"></span>
                       )}
                     </div>
                   </div>
@@ -1917,8 +1855,8 @@ Output Restrictions:
           </div>
 
           {/* Footer */}
-          <div className="h-12 border-t border-gray-800 flex items-center justify-center bg-gray-900/30 backdrop-blur-xl">
-            <p className="text-xs text-gray-600">
+          <div className="h-12 border-t border-slate-200/80 flex items-center justify-center bg-[#f6f8fa]">
+            <p className="text-xs text-slate-400">
               Powered by Soket AI Labs : Part of IndiaAI intiative
             </p>
           </div>
