@@ -11,7 +11,7 @@ import companyLogo from './Soket-Logo.svg';
 const API_CONFIG = {
   // Saarthi Agri-Model (In-house OpenWebUI)
   saarthiApiKey: import.meta.env.VITE_SAARTHI_API_KEY || 'sk-9d09b7df9cbd5daebca67cbbb45e9f0c',
-  saarthiBaseUrl: import.meta.env.VITE_SAARTHI_BASE_URL || 'http://localhost:8001/v1/chat/completions',
+  saarthiBaseUrl: import.meta.env.VITE_SAARTHI_BASE_URL || 'http://localhost:8000/v1/chat/completions',
   saarthiModel: 'soketlabs/saarthi-agri-v1',
   
   // ElevenLabs API
@@ -358,6 +358,18 @@ const AgriAdvisoryInterface = () => {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isPausedAudio, setIsPausedAudio] = useState(false);
   const [autoPlayAudio, setAutoPlayAudio] = useState(true);
+
+  // Token stats tracking
+  const [tokenStats, setTokenStats] = useState<{
+    totalTokens: number;
+    reasoningTokens: number;
+    responseTokens: number;
+    tokensPerSec: number;
+  } | null>(null);
+  const streamStartTimeRef = useRef<number>(0);
+  const totalTokenCountRef = useRef(0);
+  const reasoningTokenCountRef = useRef(0);
+  const responseTokenCountRef = useRef(0);
   
   const responseContainerRef = useRef<HTMLDivElement>(null);
   const responseContentRef = useRef<HTMLDivElement>(null);
@@ -510,7 +522,7 @@ const AgriAdvisoryInterface = () => {
         ws.send(JSON.stringify({
           text: ' ',
           voice_settings: {
-            stability: 0.5,
+            stability: 0.8,
             similarity_boost: 0.75,
             style: 0.0,
             use_speaker_boost: true,
@@ -1158,6 +1170,13 @@ Output Restrictions:
     setIsThinking(true);
     setReasoningExpanded(false);
 
+    // Reset token stats
+    setTokenStats(null);
+    streamStartTimeRef.current = 0;
+    totalTokenCountRef.current = 0;
+    reasoningTokenCountRef.current = 0;
+    responseTokenCountRef.current = 0;
+
     const prompt = buildPrompt();
     console.log("prompt", prompt);
     
@@ -1236,16 +1255,48 @@ Output Restrictions:
 
               if (content) {
                 fullResponseText += content;
+
+                // Start timing from the very first content token
+                if (streamStartTimeRef.current === 0) {
+                  streamStartTimeRef.current = performance.now();
+                }
+
+                // Count token (each SSE delta ≈ 1 token)
+                totalTokenCountRef.current++;
                 
                 // Track display text length BEFORE parsing so we can extract
                 // only the newly-added response text for TTS (not thinking text).
                 const prevDisplayLen = state.displayText.length;
+                const wasInThinking = state.inThinkingMode;
                 state = processStreamChunk(
                   content, 
                   state, 
                   uiSettings.thinkingStartToken, 
                   uiSettings.thinkingEndToken
                 );
+
+                // Categorize token as reasoning or response
+                if (wasInThinking && state.inThinkingMode) {
+                  reasoningTokenCountRef.current++;
+                } else if (!wasInThinking && !state.inThinkingMode) {
+                  responseTokenCountRef.current++;
+                } else {
+                  // Transition token — count towards the mode it ended in
+                  if (state.inThinkingMode) {
+                    reasoningTokenCountRef.current++;
+                  } else {
+                    responseTokenCountRef.current++;
+                  }
+                }
+
+                // Live stats update (throttled via React batching)
+                const elapsedSec = (performance.now() - streamStartTimeRef.current) / 1000;
+                setTokenStats({
+                  totalTokens: totalTokenCountRef.current,
+                  reasoningTokens: reasoningTokenCountRef.current,
+                  responseTokens: responseTokenCountRef.current,
+                  tokensPerSec: elapsedSec > 0 ? totalTokenCountRef.current / elapsedSec : 0,
+                });
                 
                 const cleanedResponse = cleanResponseContent(state.displayText);
                 setResponse(cleanedResponse);
@@ -1268,6 +1319,23 @@ Output Restrictions:
               if (contentMatch && contentMatch[1]) {
                 const content = contentMatch[1];
                 fullResponseText += content;
+
+                if (streamStartTimeRef.current === 0) {
+                  streamStartTimeRef.current = performance.now();
+                }
+                totalTokenCountRef.current++;
+                if (state.inThinkingMode) {
+                  reasoningTokenCountRef.current++;
+                } else {
+                  responseTokenCountRef.current++;
+                }
+                const elapsedSec = (performance.now() - streamStartTimeRef.current) / 1000;
+                setTokenStats({
+                  totalTokens: totalTokenCountRef.current,
+                  reasoningTokens: reasoningTokenCountRef.current,
+                  responseTokens: responseTokenCountRef.current,
+                  tokensPerSec: elapsedSec > 0 ? totalTokenCountRef.current / elapsedSec : 0,
+                });
                 
                 const prevDisplayLen = state.displayText.length;
                 state = processStreamChunk(
@@ -1367,6 +1435,7 @@ Output Restrictions:
     setDisplayedThinking('');
     setError('');
     setReasoningExpanded(false);
+    setTokenStats(null);
   };
 
   // Response: update directly — the SSE stream already provides a natural typing
@@ -1462,7 +1531,7 @@ Output Restrictions:
                 <Zap size={12} />
                 API Provider
               </label>
-              <div className="w-full px-3 py-2 bg-white/60 border border-slate-200/80 rounded-lg text-slate-700 text-sm">
+              <div className="w-full px-3 py-2 bg-white/60 border border-slate-200/80 rounded-lg text-slate-900 text-sm">
                 Sarthi Agri-Model
               </div>
             </div>
@@ -1632,11 +1701,11 @@ Output Restrictions:
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col">
-          {/* Header */}
+          {/* Header Bar */}
           <div className="h-14 border-b border-slate-200/80 flex items-center justify-between px-6 bg-[#f6f8fa]">
             <div className="flex items-center gap-2">
-              <Brain size={20} className="text-emerald-600" />
-              <span className="text-slate-800 font-medium">Agricultural Advisory Response</span>
+              <Brain size={18} className="text-emerald-800" />
+              <span className="text-sm font-medium text-emerald-800">Agricultural Advisory Response</span>
             </div>
             <div className="flex items-center gap-2 text-xs">
               <span className={`w-2 h-2 rounded-full animate-pulse ${getProviderColor()}`}></span>
@@ -1646,7 +1715,8 @@ Output Restrictions:
             </div>
           </div>
 
-          {/* Response Area — min-h-0 lets flex child scroll; overflow-y-auto makes it scrollable */}
+          {/* Response Area */}
+          <>
           <div 
             ref={responseContainerRef}
             onScroll={handleResponseScroll}
@@ -1788,30 +1858,39 @@ Output Restrictions:
                     </div>
                   )}
 
+                  {/* Stats bar during reasoning (before response arrives) */}
+                  {tokenStats && !response && (
+                    <div className="mb-4 px-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-lg">
+                      <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                        <span>Total: <span className="font-semibold text-slate-700">{tokenStats.totalTokens}</span></span>
+                        <span>Reasoning: <span className="font-semibold text-amber-600">{tokenStats.reasoningTokens}</span></span>
+                        <span>Response: <span className="font-semibold text-emerald-600">{tokenStats.responseTokens}</span></span>
+                        <span><span className="font-semibold text-blue-600">{tokenStats.tokensPerSec.toFixed(1)}</span> tok/s</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Response Content */}
                   <div className="relative">
-                    {/* Audio Playback Controls */}
+                    {/* Audio Controls + Token Stats Bar (once response is present) */}
                     {response && (
                       <div className="flex items-center justify-between mb-4">
+                        {/* Token Stats (left side) */}
                         <div className="flex items-center gap-3">
-                          {/* <span className={`text-xs font-medium ${isPlayingAudio ? 'text-emerald-400' : isPausedAudio ? 'text-blue-400' : 'text-gray-500'}`}>
-                            🎵 Audio: {isPlayingAudio ? 'Playing' : isPausedAudio ? 'Paused' : 'Ready'}
-                          </span> */}
-                          {/* {isPausedAudio && pausedAtTimeRef.current > 0 && (
-                            <span className="text-xs text-blue-600">
-                              (Paused at {pausedAtTimeRef.current.toFixed(1)}s in chunk {currentChunkIndexRef.current})
-                            </span>
-                          )} */}
-                          {hasAudioStartedRef.current && !isGenerating && (
-                            <span className="text-xs text-slate-400">
-                              Audio-started
-                            </span>
+                          {tokenStats && (
+                            <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                              <span>Total: <span className="font-semibold text-slate-700">{tokenStats.totalTokens}</span></span>
+                              <span>Reasoning: <span className="font-semibold text-amber-600">{tokenStats.reasoningTokens}</span></span>
+                              <span>Response: <span className="font-semibold text-emerald-600">{tokenStats.responseTokens}</span></span>
+                              <span><span className="font-semibold text-blue-600">{tokenStats.tokensPerSec.toFixed(1)}</span> tok/s</span>
+                            </div>
                           )}
                         </div>
+                        {/* Audio button (right side) */}
                         <button
                           onClick={toggleAudioPlayback}
                           disabled={!response}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                             isPlayingAudio 
                               ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100' 
                               : isPausedAudio
@@ -1857,9 +1936,10 @@ Output Restrictions:
           {/* Footer */}
           <div className="h-12 border-t border-slate-200/80 flex items-center justify-center bg-[#f6f8fa]">
             <p className="text-xs text-slate-400">
-              Powered by Soket AI Labs : Part of IndiaAI intiative
+              Powered by Soket AI Labs : Part of IndiaAI initiative 🇮🇳
             </p>
           </div>
+          </>
         </div>
       </div>
     </div>
